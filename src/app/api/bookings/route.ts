@@ -42,6 +42,12 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
     throw new NotFoundError('User not found');
   }
 
+  // Read pricing/settings OUTSIDE the transaction to avoid timeouts/P2028
+  const globalSettings = await (prisma as any).systemSettings.findUnique({
+    where: { id: 'default' },
+    select: { pricePerCylinder: true },
+  });
+
   // Create booking within transaction and atomically decrement quota if available
   const booking = await prisma.$transaction(async (tx) => {
     // Atomically decrement only if remainingQuota > 0
@@ -71,7 +77,7 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
     });
 
     // Seed initial tracking events
-    await tx.bookingEvent.createMany({
+    await (tx as any).bookingEvent.createMany({
       data: [
         {
           bookingId: created.id,
@@ -94,6 +100,18 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
         title: 'Booking Created',
         message: 'Your booking has been created and is pending approval.',
         type: 'BOOKING_CREATED',
+      },
+    });
+
+    // Create payment record (PENDING) and compute amount
+    const unitPrice = (globalSettings?.pricePerCylinder ?? 1100);
+    const amountInPaise = (unitPrice * (typeof quantity === 'number' ? quantity : 1)) * 100;
+    await (tx as any).payment.create({
+      data: {
+        bookingId: created.id,
+        amount: amountInPaise,
+        method: paymentMethod as PaymentMethod,
+        status: 'PENDING',
       },
     });
 

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { profileUpdateSchema } from '@/lib/validation';
-import { withAuth, successResponse } from '@/lib/api-middleware';
+import { withAuth, successResponse, errorResponse } from '@/lib/api-middleware';
 import { NotFoundError } from '@/lib/error-handler';
 import { sanitizeInput } from '@/lib/security';
 import { Prisma } from '@prisma/client';
@@ -42,6 +42,10 @@ async function updateProfileHandler(request: NextRequest, context?: Record<strin
     throw new Error('Session not found');
   }
   const body = await request.json();
+  // Disallow email updates explicitly
+  if (Object.prototype.hasOwnProperty.call(body, 'email')) {
+    return errorResponse('EMAIL_IMMUTABLE', 'Email cannot be changed', 400);
+  }
   const { name, phone, address } = profileUpdateSchema.parse(body);
 
   // Check if user exists before updating

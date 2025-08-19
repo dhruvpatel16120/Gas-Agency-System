@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui';
+import { formatDate, getStatusColor } from '@/lib/utils';
 import { User, Mail, Phone, MapPin, Save, ArrowLeft } from 'lucide-react';
 import UserNavbar from '@/components/UserNavbar';
 import { toast } from 'react-hot-toast';
@@ -13,12 +14,23 @@ export default function UserProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [memberSince, setMemberSince] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
   });
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookings, setBookings] = useState<Array<{
+    id: string;
+    status: 'PENDING' | 'APPROVED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+    paymentMethod: 'COD' | 'UPI';
+    quantity?: number | null;
+    createdAt: string;
+    expectedDate?: string | null;
+    deliveryDate?: string | null;
+  }>>([]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -29,22 +41,42 @@ export default function UserProfilePage() {
 
     // Load user data
     loadUserProfile();
+    void loadRecentBookings();
   }, [session, status, router]);
 
   const loadUserProfile = async () => {
     try {
       const response = await fetch('/api/user/profile');
       if (response.ok) {
-        const userData = await response.json();
+        const json = await response.json();
+        const userData = json.data || {};
         setFormData({
           name: userData.name || '',
           email: userData.email || '',
           phone: userData.phone || '',
           address: userData.address || '',
         });
+        setMemberSince(userData.createdAt || null);
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
+    }
+  };
+
+  const loadRecentBookings = async () => {
+    try {
+      setBookingsLoading(true);
+      const response = await fetch('/api/bookings?page=1&limit=5');
+      const json = await response.json();
+      if (json?.success) {
+        const list = (json.data?.data || []) as typeof bookings;
+        setBookings(list);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load bookings:', error);
+    } finally {
+      setBookingsLoading(false);
     }
   };
 
@@ -57,11 +89,7 @@ export default function UserProfilePage() {
       newErrors.name = 'Name must be at least 2 characters';
     }
 
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
+    // Email is read-only and not editable
 
     if (!formData.phone) {
       newErrors.phone = 'Phone number is required';
@@ -168,72 +196,98 @@ export default function UserProfilePage() {
                   </CardTitle>
                 </CardHeader>
 
-                <form onSubmit={handleSubmit}>
-                  <CardContent className="space-y-4">
-                    {/* Name Input */}
-                    <Input
-                      label="Full Name"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      error={errors.name}
-                      required
-                      autoComplete="name"
-                      icon={<User className="w-4 h-4" />}
-                    />
+                {/* Read-only preview */}
+                <CardContent className="space-y-4">
+                  <Input
+                    label="Full Name"
+                    type="text"
+                    value={formData.name}
+                    disabled
+                    icon={<User className="w-4 h-4" />}
+                  />
 
-                    {/* Email Input (Read-only) */}
-                    <Input
-                      label="Email Address"
-                      type="email"
-                      value={formData.email}
-                      error={errors.email}
-                      disabled
-                      autoComplete="email"
-                      icon={<Mail className="w-4 h-4" />}
-                      helperText="Email cannot be changed"
-                    />
+                  <Input
+                    label="Email Address"
+                    type="email"
+                    value={formData.email}
+                    disabled
+                    icon={<Mail className="w-4 h-4" />}
+                  />
 
-                    {/* Phone Input */}
-                    <Input
-                      label="Phone Number"
-                      type="tel"
-                      placeholder="Enter your phone number"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      error={errors.phone}
-                      required
-                      autoComplete="tel"
-                      icon={<Phone className="w-4 h-4" />}
-                    />
+                  <Input
+                    label="Phone Number"
+                    type="tel"
+                    value={formData.phone}
+                    disabled
+                    icon={<Phone className="w-4 h-4" />}
+                  />
 
-                    {/* Address Input */}
-                    <Input
-                      label="Address"
-                      type="text"
-                      placeholder="Enter your complete address"
-                      value={formData.address}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      error={errors.address}
-                      required
-                      autoComplete="street-address"
-                      icon={<MapPin className="w-4 h-4" />}
-                    />
-                  </CardContent>
+                  <Input
+                    label="Address"
+                    type="text"
+                    value={formData.address}
+                    disabled
+                    icon={<MapPin className="w-4 h-4" />}
+                  />
+                </CardContent>
 
-                  <CardFooter>
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      loading={loading}
-                      disabled={loading}
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      {loading ? 'Saving...' : 'Save Changes'}
-                    </Button>
-                  </CardFooter>
-                </form>
+                <CardFooter>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => router.push('/user/profile/edit')}
+                  >
+                    Edit Profile
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              {/* Recent Bookings */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle>Recent Bookings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {bookingsLoading ? (
+                    <p className="text-sm text-gray-600">Loading bookings...</p>
+                  ) : bookings.length === 0 ? (
+                    <p className="text-sm text-gray-600">No bookings found.</p>
+                  ) : (
+                    <div className="divide-y divide-gray-200">
+                      {bookings.map((b) => (
+                        <div key={b.id} className="py-3 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">Booking #{b.id.slice(0, 8)}</p>
+                            <p className="text-xs text-gray-600">
+                              {formatDate(b.createdAt)} · Qty: {b.quantity ?? 1} · {b.paymentMethod}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${getStatusColor(b.status)}`}
+                            >
+                              {b.status}
+                            </span>
+                            <button
+                              onClick={() => router.push(`/user/track/${b.id}`)}
+                              className="text-xs text-blue-600 hover:text-blue-700"
+                            >
+                              Track
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <button
+                    onClick={() => router.push('/user/bookings')}
+                    className="text-sm text-blue-600 hover:text-blue-700"
+                  >
+                    View all bookings
+                  </button>
+                </CardFooter>
               </Card>
             </div>
 
@@ -255,7 +309,7 @@ export default function UserProfilePage() {
                   <div>
                     <p className="text-sm font-medium text-gray-700">Member Since</p>
                     <p className="text-sm text-gray-600">
-                      N/A
+                      {memberSince ? formatDate(memberSince) : '—'}
                     </p>
                   </div>
                 </CardContent>

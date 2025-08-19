@@ -241,6 +241,14 @@ export default function BookingHistoryPage() {
                           >
                             Track
                           </button>
+                          {b.paymentMethod === 'UPI' && b.status !== 'CANCELLED' && (
+                            <button
+                              onClick={() => router.push(`/user/pay/upi/${b.id}`)}
+                              className="inline-flex items-center px-3 py-1.5 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50"
+                            >
+                              Pay
+                            </button>
+                          )}
                           {b.status === 'PENDING' && (
                             <button
                               onClick={() => cancelBooking(b.id)}

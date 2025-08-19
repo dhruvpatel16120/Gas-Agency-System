@@ -98,8 +98,9 @@ model Booking {
   updatedAt     DateTime      @updatedAt
 
   // Relations
-  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events BookingEvent[]
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events   BookingEvent[]
+  payments Payment[]
 
   @@map("bookings")
 }
@@ -157,4 +158,36 @@ enum NotificationType {
   BOOKING_DELIVERED
   PAYMENT_RECEIVED
   SYSTEM_UPDATE
+}
+
+model SystemSettings {
+  id               String   @id @default("default")
+  upiId            String?
+  upiQrImageUrl    String?
+  pricePerCylinder Int      @default(1100) // INR amount per cylinder
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+
+  @@map("system_settings")
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String
+  amount    Int // in paise (INR * 100)
+  method    PaymentMethod
+  status    PaymentStatus @default(PENDING)
+  upiTxnId  String?
+  createdAt DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }

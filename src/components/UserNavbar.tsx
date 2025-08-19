@@ -15,6 +15,9 @@ export default function UserNavbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Centralized routes for menu links
+  const PROFILE_ROUTE = '/user/profile';
+
   useEffect(() => {
     const onClickAway = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -124,7 +127,7 @@ export default function UserNavbar() {
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><Calendar className="w-4 h-4" /></span>
                     <span className="flex-1">Booking History</span>
                   </Link>
-                  <Link href="/user/profile" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
+                  <Link href={PROFILE_ROUTE} className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
                     <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><User className="w-4 h-4" /></span>
                     <span className="flex-1">Profile</span>
                   </Link>
@@ -186,7 +189,7 @@ export default function UserNavbar() {
               <Link href="/user" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Dashboard</Link>
               <Link href="/user/book" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>New Booking</Link>
               <Link href="/user/bookings" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Booking History</Link>
-              <Link href="/user/profile" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Profile</Link>
+              <Link href={PROFILE_ROUTE} className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Profile</Link>
               <Link href="/user/contact" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Contact Us</Link>
             </nav>
             <div className="border-t border-gray-100 p-2">

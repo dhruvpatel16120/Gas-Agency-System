@@ -35,7 +35,8 @@ export default function BookCylinderPage() {
       try {
         const res = await fetch('/api/user/profile');
         if (res.ok) {
-          const data = await res.json();
+          const json = await res.json();
+          const data = json.data || {};
           if (!receiverName) setReceiverName(data.name || '');
           if (!receiverPhone) setReceiverPhone(data.phone || '');
         }

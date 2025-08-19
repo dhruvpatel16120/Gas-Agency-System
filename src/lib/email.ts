@@ -245,6 +245,56 @@ export const emailTemplates = {
     `,
     text: `Booking Request Received - Hello ${userName}. Booking ID: ${details.id}. Payment: ${details.paymentMethod}. Quantity: ${details.quantity}. Receiver: ${details.receiverName || '-'} (${details.receiverPhone || '-' }). Expected (requested): ${details.expectedDate ? details.expectedDate.toLocaleDateString() : 'Not specified'}. Notes: ${details.notes || '-'} | Profile -> Email: ${details.userEmail || '-'}, Phone: ${details.userPhone || '-'}, Address: ${details.userAddress || '-'}`,
   }),
+  contactAcknowledgement: (
+    userName: string,
+    details: { subject: string }
+  ): EmailTemplate => ({
+    subject: 'We received your message - Gas Agency Support',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+        <h2 style="color: #006d3b;">Thanks for contacting us</h2>
+        <p>Hello ${userName},</p>
+        <p>We've received your message regarding <strong>${details.subject}</strong>. Our support team will get back to you as soon as possible.</p>
+        <p>If this is urgent, you can reply directly to this email.</p>
+        <p>Best regards,<br/>Gas Agency Support Team</p>
+      </div>
+    `,
+    text: `Thanks for contacting us. Hello ${userName}, we've received your message regarding ${details.subject}. Our support team will get back to you as soon as possible.`,
+  }),
+  contactAdminNotification: (
+    payload: {
+      fromName: string;
+      fromEmail: string;
+      subject: string;
+      category?: string;
+      priority?: string;
+      relatedBookingId?: string;
+      preferredContact?: string;
+      phone?: string;
+      message: string;
+    }
+  ): EmailTemplate => ({
+    subject: `[Contact] ${payload.subject} - ${payload.fromName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
+        <h2 style="color: #111827;">New Contact Form Submission</h2>
+        <p><strong>From:</strong> ${payload.fromName} &lt;${payload.fromEmail}&gt;</p>
+        ${payload.phone ? `<p><strong>Phone:</strong> ${payload.phone}</p>` : ''}
+        <div style="background:#f3f4f6; padding:12px; border-radius:8px; margin:16px 0;">
+          <p style="margin:4px 0;"><strong>Subject:</strong> ${payload.subject}</p>
+          ${payload.category ? `<p style="margin:4px 0;"><strong>Category:</strong> ${payload.category}</p>` : ''}
+          ${payload.priority ? `<p style="margin:4px 0;"><strong>Priority:</strong> ${payload.priority}</p>` : ''}
+          ${payload.preferredContact ? `<p style="margin:4px 0;"><strong>Preferred Contact:</strong> ${payload.preferredContact}</p>` : ''}
+          ${payload.relatedBookingId ? `<p style="margin:4px 0;"><strong>Related Booking:</strong> ${payload.relatedBookingId}</p>` : ''}
+        </div>
+        <div style="background:#ffffff; border:1px solid #e5e7eb; padding:12px; border-radius:8px;">
+          <p style="margin:0 0 6px 0;"><strong>Message</strong></p>
+          <pre style="white-space:pre-wrap; font-family:inherit; line-height:1.5;">${payload.message}</pre>
+        </div>
+      </div>
+    `,
+    text: `New Contact Submission\nFrom: ${payload.fromName} <${payload.fromEmail}>${payload.phone ? `\nPhone: ${payload.phone}` : ''}\nSubject: ${payload.subject}\n${payload.category ? `Category: ${payload.category}\n` : ''}${payload.priority ? `Priority: ${payload.priority}\n` : ''}${payload.preferredContact ? `Preferred Contact: ${payload.preferredContact}\n` : ''}${payload.relatedBookingId ? `Related Booking: ${payload.relatedBookingId}\n` : ''}\n\nMessage:\n${payload.message}`,
+  }),
 };
 
 // Send welcome email
@@ -414,4 +464,36 @@ export const sendEmailVerification = async (
     html: template.html,
     text: template.text,
   });
+};
+
+// Contact form emails
+export const sendContactAcknowledgementEmail = async (
+  toEmail: string,
+  userName: string,
+  subject: string
+): Promise<boolean> => {
+  const template = emailTemplates.contactAcknowledgement(userName, { subject });
+  return sendEmail({ to: toEmail, subject: template.subject, html: template.html, text: template.text });
+};
+
+export const sendContactFormToAdmin = async (
+  payload: {
+    fromName: string;
+    fromEmail: string;
+    subject: string;
+    category?: string;
+    priority?: string;
+    relatedBookingId?: string;
+    preferredContact?: string;
+    phone?: string;
+    message: string;
+  }
+): Promise<boolean> => {
+  const adminEmail = process.env.SUPPORT_EMAIL || process.env.EMAIL_SERVER_USER;
+  if (!adminEmail) {
+    console.error('No SUPPORT_EMAIL or EMAIL_SERVER_USER configured');
+    return false;
+  }
+  const template = emailTemplates.contactAdminNotification(payload);
+  return sendEmail({ to: adminEmail, subject: template.subject, html: template.html, text: template.text });
 };
