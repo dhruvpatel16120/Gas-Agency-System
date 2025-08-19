@@ -71,6 +71,7 @@ export default function AdminNavbar() {
  						<NavLink href="/admin/bookings" label="Bookings" />
  						<NavLink href="/admin/users" label="Users" />
  						<NavLink href="/admin/inventory" label="Inventory" />
+ 						<NavLink href="/admin/contacts" label="Contacts" />
  						<NavLink href="/admin/reports" label="Reports" />
  						<NavLink href="/admin/settings" label="Settings" />
  					</nav>
@@ -134,6 +135,10 @@ export default function AdminNavbar() {
  										<span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-purple-50 text-purple-600"><Settings className="w-4 h-4" /></span>
  										<span className="flex-1">Settings</span>
  									</Link>
+ 									<Link href="/admin/contacts" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
+ 										<span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-purple-50 text-purple-600"><Calendar className="w-4 h-4" /></span>
+ 										<span className="flex-1">Contacts</span>
+ 									</Link>
  								</div>
  								{/* footer */}
  								<div className="border-t border-gray-100 p-2">
@@ -192,6 +197,7 @@ export default function AdminNavbar() {
  							<Link href="/admin/inventory" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Inventory</Link>
  							<Link href="/admin/reports" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Reports</Link>
  							<Link href="/admin/settings" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Settings</Link>
+ 							<Link href="/admin/contacts" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Contacts</Link>
  						</nav>
  						<div className="border-t border-gray-100 p-2">
  							<button

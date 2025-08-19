@@ -37,13 +37,14 @@ const userIdSchema = z
 const phoneSchema = z
   .string()
   .min(1, 'Phone number is required')
-  .regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number format')
-  .transform((phone) => phone.replace(/\s/g, ''));
+  // Normalize: strip all non-digits and keep last 10 (handles +91, spaces, hyphens)
+  .transform((phone) => phone.replace(/\D/g, '').slice(-10))
+  .refine((digits) => /^([6-9])\d{9}$/.test(digits), 'Invalid Indian phone number format');
 
 const addressSchema = z
   .string()
   .min(1, 'Address is required')
-  .min(10, 'Address must be at least 10 characters')
+  .min(5, 'Address must be at least 5 characters')
   .max(500, 'Address is too long')
   .transform((address) => sanitizeInput(address.trim()));
 

@@ -31,9 +31,11 @@ model User {
 
   // Relations
   bookings      Booking[]
-  notifications Notification[]
   accounts      Account[]
   sessions      Session[]
+  // Contact relations
+  contactMessages ContactMessage[] @relation("UserContactMessages")
+  contactReplies  ContactReply[]   @relation("UserContactReplies")
 
   @@map("users")
 }
@@ -105,21 +107,6 @@ model Booking {
   @@map("bookings")
 }
 
-model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      NotificationType
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-}
-
 model BookingEvent {
   id          String        @id @default(cuid())
   bookingId   String
@@ -152,14 +139,6 @@ enum BookingStatus {
   CANCELLED
 }
 
-enum NotificationType {
-  BOOKING_CREATED
-  BOOKING_APPROVED
-  BOOKING_DELIVERED
-  PAYMENT_RECEIVED
-  SYSTEM_UPDATE
-}
-
 model SystemSettings {
   id               String   @id @default("default")
   upiId            String?
@@ -190,4 +169,50 @@ enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+// Contact management
+model ContactMessage {
+  id                String         @id @default(cuid())
+  userId            String
+  subject           String
+  message           String
+  category          String?
+  priority          String?
+  relatedBookingId  String?
+  preferredContact  String?
+  phone             String?
+  status            ContactStatus  @default(NEW)
+  lastRepliedAt     DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  user    User            @relation("UserContactMessages", fields: [userId], references: [id], onDelete: Cascade)
+  replies ContactReply[]
+
+  @@index([userId])
+  @@map("contact_messages")
+}
+
+model ContactReply {
+  id         String          @id @default(cuid())
+  messageId  String
+  authorId   String
+  body       String
+  isAdmin    Boolean         @default(false)
+  createdAt  DateTime        @default(now())
+
+  message ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  author  User           @relation("UserContactReplies", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([authorId])
+  @@map("contact_replies")
+}
+
+enum ContactStatus {
+  NEW
+  OPEN
+  RESOLVED
+  ARCHIVED
 }

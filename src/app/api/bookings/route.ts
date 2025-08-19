@@ -94,15 +94,6 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
       ],
     });
 
-    await tx.notification.create({
-      data: {
-        userId: user.id,
-        title: 'Booking Created',
-        message: 'Your booking has been created and is pending approval.',
-        type: 'BOOKING_CREATED',
-      },
-    });
-
     // Create payment record (PENDING) and compute amount
     const unitPrice = (globalSettings?.pricePerCylinder ?? 1100);
     const amountInPaise = (unitPrice * (typeof quantity === 'number' ? quantity : 1)) * 100;

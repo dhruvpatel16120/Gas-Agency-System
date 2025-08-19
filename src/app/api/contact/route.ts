@@ -33,6 +33,21 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
     return errorResponse('NOT_FOUND', 'User not found', 404);
   }
 
+  // Persist contact message
+  const saved = await (prisma as any).contactMessage.create({
+    data: {
+      userId: session.user.id,
+      subject,
+      message,
+      category: category || null,
+      priority: priority || null,
+      relatedBookingId: relatedBookingId || null,
+      preferredContact: preferredContact || null,
+      phone: phone || null,
+      status: 'NEW',
+    },
+  });
+
   // Send emails (fire-and-forget)
   void sendContactFormToAdmin({
     fromName: user.name,
@@ -47,7 +62,7 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
   });
   void sendContactAcknowledgementEmail(user.email, user.name, subject);
 
-  return successResponse({ submitted: true }, 'Your message has been sent');
+  return successResponse({ submitted: true, id: saved.id }, 'Your message has been sent');
 };
 
 export const POST = withMiddleware(handler, { requireAuth: true, validateContentType: true, rateLimit: { type: 'email' } });

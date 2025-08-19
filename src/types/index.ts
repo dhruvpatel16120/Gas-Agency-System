@@ -1,9 +1,8 @@
-import { User, Booking, Notification, UserRole, PaymentMethod, BookingStatus, NotificationType } from '@prisma/client';
+import { User, Booking, UserRole, PaymentMethod, BookingStatus } from '@prisma/client';
 
 // User Types
 export type UserWithRelations = User & {
   bookings: Booking[];
-  notifications: Notification[];
 };
 
 export type CreateUserInput = {
@@ -37,17 +36,7 @@ export type BookingWithUser = Booking & {
   user: User;
 };
 
-// Notification Types
-export type CreateNotificationInput = {
-  userId: string;
-  title: string;
-  message: string;
-  type: NotificationType;
-};
-
-export type NotificationWithUser = Notification & {
-  user: User;
-};
+// Notification types removed
 
 // Auth Types
 export type SessionUser = {
@@ -79,7 +68,6 @@ export type DashboardStats = {
 export type UserDashboardData = {
   user: User;
   recentBookings: Booking[];
-  notifications: Notification[];
   stats: {
     totalBookings: number;
     pendingBookings: number;

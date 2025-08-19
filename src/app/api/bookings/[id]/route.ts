@@ -48,7 +48,7 @@ async function updateBookingHandler(request: NextRequest, context?: Record<strin
     }
   }
 
-  // Transactional update with quota adjustments and notifications
+  // Transactional update with quota adjustments
   const updated = await prisma.$transaction(async (tx) => {
     // Prepare update data
     const data: Record<string, unknown> = { status };
@@ -81,47 +81,7 @@ async function updateBookingHandler(request: NextRequest, context?: Record<strin
       data,
     });
 
-    // Notification type mapping
-    let notificationTitle = '';
-    let notificationMessage = '';
-    let emailAction: 'APPROVED' | 'DELIVERED' | null = null;
-
-    switch (status as BookingStatus) {
-      case 'APPROVED':
-        notificationTitle = 'Booking Approved';
-        notificationMessage = 'Your booking has been approved and scheduled for delivery.';
-        emailAction = 'APPROVED';
-        break;
-      case 'OUT_FOR_DELIVERY' as BookingStatus:
-        notificationTitle = 'Out for Delivery';
-        notificationMessage = 'Your cylinder is out for delivery.';
-        break;
-      case 'DELIVERED':
-        notificationTitle = 'Booking Delivered';
-        notificationMessage = 'Your cylinder has been delivered successfully.';
-        emailAction = 'DELIVERED';
-        break;
-      case 'CANCELLED':
-        notificationTitle = 'Booking Cancelled';
-        notificationMessage = 'Your booking has been cancelled.';
-        break;
-      default:
-        break;
-    }
-
-    await tx.notification.create({
-      data: {
-        userId: booking.userId,
-        title: notificationTitle,
-        message: notificationMessage,
-        type:
-          status === 'APPROVED'
-            ? 'BOOKING_APPROVED'
-            : status === 'DELIVERED'
-            ? 'BOOKING_DELIVERED'
-            : 'SYSTEM_UPDATE',
-      },
-    });
+    // Notification creation removed
 
     // Tracking events
     const eventTitleMap: Record<string, string> = {
@@ -147,10 +107,10 @@ async function updateBookingHandler(request: NextRequest, context?: Record<strin
     });
 
     // Send emails after transaction commits (fire-and-forget)
-    if (emailAction === 'APPROVED') {
+    if (status === 'APPROVED') {
       const dateStr = (data.deliveryDate as Date).toLocaleDateString('en-IN');
       void sendBookingApprovalEmail(booking.user.email, booking.user.name, booking.id, dateStr);
-    } else if (emailAction === 'DELIVERED') {
+    } else if (status === 'DELIVERED') {
       void sendDeliveryConfirmationEmail(booking.user.email, booking.user.name, booking.id);
     } else if (status === 'CANCELLED') {
       void sendBookingCancellationEmail(booking.user.email, booking.user.name, booking.id, isAdmin ? 'Admin' : 'User');
