@@ -11,29 +11,29 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  name            String
-  userId          String    @unique // Custom user ID
-  phone           String
-  address         String
-  password        String?   // Hashed password for credentials auth
-  role            UserRole  @default(USER)
-  remainingQuota  Int       @default(12)
-  emailVerified   DateTime?
-  image           String?
-  resetToken      String?
-  resetTokenExpiry DateTime?
-  emailVerificationToken String?
+  id                      String    @id @default(cuid())
+  email                   String    @unique
+  name                    String
+  userId                  String    @unique // Custom user ID
+  phone                   String
+  address                 String
+  password                String? // Hashed password for credentials auth
+  role                    UserRole  @default(USER)
+  remainingQuota          Int       @default(12)
+  emailVerified           DateTime?
+  image                   String?
+  resetToken              String?
+  resetTokenExpiry        DateTime?
+  emailVerificationToken  String?
   emailVerificationExpiry DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   // Relations
-  bookings        Booking[]
-  notifications   Notification[]
-  accounts        Account[]
-  sessions        Session[]
+  bookings      Booking[]
+  notifications Notification[]
+  accounts      Account[]
+  sessions      Session[]
 
   @@map("users")
 }
@@ -81,34 +81,56 @@ model Booking {
   id            String        @id @default(cuid())
   userId        String
   userName      String
+  userEmail     String?
+  userPhone     String?
+  userAddress   String?
   paymentMethod PaymentMethod
+  quantity      Int           @default(1)
+  receiverName  String?
+  receiverPhone String?
   status        BookingStatus @default(PENDING)
   requestedAt   DateTime      @default(now())
   deliveryDate  DateTime?
+  expectedDate  DateTime?
   deliveredAt   DateTime?
   notes         String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events BookingEvent[]
 
   @@map("bookings")
 }
 
 model Notification {
-  id        String             @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
   title     String
   message   String
   type      NotificationType
-  isRead    Boolean            @default(false)
-  createdAt DateTime           @default(now())
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+model BookingEvent {
+  id          String        @id @default(cuid())
+  bookingId   String
+  status      BookingStatus
+  title       String
+  description String?
+  createdAt   DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_events")
 }
 
 enum UserRole {
@@ -124,6 +146,7 @@ enum PaymentMethod {
 enum BookingStatus {
   PENDING
   APPROVED
+  OUT_FOR_DELIVERY
   DELIVERED
   CANCELLED
 }

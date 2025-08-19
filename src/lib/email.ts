@@ -67,24 +67,48 @@ export const emailTemplates = {
     text: `Welcome to Gas Agency System! Hello ${userName}, Thank you for registering with our Gas Agency System. Your account has been successfully created.`,
   }),
 
-  bookingConfirmation: (userName: string, bookingId: string, paymentMethod: string): EmailTemplate => ({
+  bookingConfirmationDetailed: (
+    userName: string,
+    details: {
+      id: string;
+      paymentMethod: string;
+      quantity: number;
+      receiverName: string;
+      receiverPhone: string;
+      expectedDate?: Date;
+      notes?: string;
+      userEmail: string;
+      userPhone: string;
+      userAddress: string;
+    }
+  ): EmailTemplate => ({
     subject: 'Booking Confirmation - Gas Agency System',
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
         <h2 style="color: #006d3b;">Booking Confirmation</h2>
         <p>Hello ${userName},</p>
-        <p>Your gas cylinder booking has been successfully submitted.</p>
-        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <p><strong>Booking ID:</strong> ${bookingId}</p>
-          <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-          <p><strong>Status:</strong> Pending Approval</p>
+        <p>Your gas cylinder booking has been submitted successfully. Below are your booking details:</p>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 16px 0;">
+          <p><strong>Booking ID:</strong> ${details.id}</p>
+          <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
+          <p><strong>Quantity:</strong> ${details.quantity}</p>
+          <p><strong>Receiver Name:</strong> ${details.receiverName}</p>
+          <p><strong>Receiver Phone:</strong> ${details.receiverPhone}</p>
+          <p><strong>Expected Delivery:</strong> ${details.expectedDate ? details.expectedDate.toLocaleDateString() : 'Not specified'}</p>
+          ${details.notes ? `<p><strong>Notes:</strong> ${details.notes}</p>` : ''}
         </div>
-        <p>We will notify you once your booking is approved and a delivery date is scheduled.</p>
+        <div style="background-color: #eef7ff; padding: 15px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin:0 0 8px 0;"><strong>Profile on File</strong></p>
+          <p style="margin:2px 0;">Email: ${details.userEmail}</p>
+          <p style="margin:2px 0;">Phone: ${details.userPhone}</p>
+          <p style="margin:2px 0;">Address: ${details.userAddress}</p>
+        </div>
+        <p>We will notify you once your booking is approved and a definitive delivery date is scheduled.</p>
         <p>Thank you for choosing our service!</p>
         <p>Best regards,<br>Gas Agency Team</p>
       </div>
     `,
-    text: `Booking Confirmation - Hello ${userName}, Your gas cylinder booking has been successfully submitted. Booking ID: ${bookingId}, Payment Method: ${paymentMethod}, Status: Pending Approval`,
+    text: `Booking Confirmation - Hello ${userName}. Booking ID: ${details.id}. Payment: ${details.paymentMethod}. Quantity: ${details.quantity}. Receiver: ${details.receiverName} (${details.receiverPhone}). Expected: ${details.expectedDate ? details.expectedDate.toLocaleDateString() : 'Not specified'}. Notes: ${details.notes || '-'} | Profile -> Email: ${details.userEmail}, Phone: ${details.userPhone}, Address: ${details.userAddress}`,
   }),
 
   bookingApproved: (userName: string, bookingId: string, deliveryDate: string): EmailTemplate => ({
@@ -126,6 +150,24 @@ export const emailTemplates = {
     text: `Cylinder Delivered - Hello ${userName}, Your gas cylinder has been successfully delivered! Booking ID: ${bookingId}`,
   }),
 
+  bookingCancelled: (userName: string, bookingId: string, cancelledBy: 'User' | 'Admin'): EmailTemplate => ({
+    subject: 'Booking Cancelled - Gas Agency System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #b91c1c;">Booking Cancelled</h2>
+        <p>Hello ${userName},</p>
+        <p>Your booking has been cancelled by <strong>${cancelledBy}</strong>.</p>
+        <div style="background-color: #fef2f2; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Booking ID:</strong> ${bookingId}</p>
+          <p><strong>Status:</strong> Cancelled</p>
+        </div>
+        <p>If this was a mistake, you can create a new booking at any time.</p>
+        <p>Best regards,<br>Gas Agency Team</p>
+      </div>
+    `,
+    text: `Booking Cancelled - Hello ${userName}, Your booking (${bookingId}) has been cancelled by ${cancelledBy}.`,
+  }),
+
   passwordReset: (userName: string, resetLink: string): EmailTemplate => ({
     subject: 'Password Reset Request - Gas Agency System',
     html: `
@@ -161,6 +203,48 @@ export const emailTemplates = {
     `,
     text: `Email Verification - Hello ${userName}, Please verify your email address by visiting: ${verificationLink}`,
   }),
+  bookingRequestReceived: (
+    userName: string,
+    details: {
+      id: string;
+      paymentMethod: string;
+      quantity: number;
+      receiverName?: string;
+      receiverPhone?: string;
+      expectedDate?: Date;
+      notes?: string;
+      userEmail?: string;
+      userPhone?: string;
+      userAddress?: string;
+    }
+  ): EmailTemplate => ({
+    subject: 'Booking Request Received - Gas Agency System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
+        <h2 style="color: #006d3b;">Booking Request Received</h2>
+        <p>Hello ${userName},</p>
+        <p>We have received your booking request. Our team will review it and notify you once it is approved.</p>
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 16px 0;">
+          <p><strong>Booking ID:</strong> ${details.id}</p>
+          <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
+          <p><strong>Quantity:</strong> ${details.quantity}</p>
+          ${details.receiverName ? `<p><strong>Receiver Name:</strong> ${details.receiverName}</p>` : ''}
+          ${details.receiverPhone ? `<p><strong>Receiver Phone:</strong> ${details.receiverPhone}</p>` : ''}
+          <p><strong>Expected Delivery (requested):</strong> ${details.expectedDate ? details.expectedDate.toLocaleDateString() : 'Not specified'}</p>
+          ${details.notes ? `<p><strong>Notes:</strong> ${details.notes}</p>` : ''}
+        </div>
+        <div style="background-color: #eef7ff; padding: 15px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin:0 0 8px 0;"><strong>Profile on File</strong></p>
+          ${details.userEmail ? `<p style="margin:2px 0;">Email: ${details.userEmail}</p>` : ''}
+          ${details.userPhone ? `<p style="margin:2px 0;">Phone: ${details.userPhone}</p>` : ''}
+          ${details.userAddress ? `<p style="margin:2px 0;">Address: ${details.userAddress}</p>` : ''}
+        </div>
+        <p>This is not a confirmation. You will receive a separate confirmation email once your booking is approved.</p>
+        <p>Best regards,<br>Gas Agency Team</p>
+      </div>
+    `,
+    text: `Booking Request Received - Hello ${userName}. Booking ID: ${details.id}. Payment: ${details.paymentMethod}. Quantity: ${details.quantity}. Receiver: ${details.receiverName || '-'} (${details.receiverPhone || '-' }). Expected (requested): ${details.expectedDate ? details.expectedDate.toLocaleDateString() : 'Not specified'}. Notes: ${details.notes || '-'} | Profile -> Email: ${details.userEmail || '-'}, Phone: ${details.userPhone || '-'}, Address: ${details.userAddress || '-'}`,
+  }),
 };
 
 // Send welcome email
@@ -176,18 +260,82 @@ export const sendWelcomeEmail = async (email: string, userName: string): Promise
 
 // Send booking confirmation email
 export const sendBookingConfirmationEmail = async (
-  email: string,
-  userName: string,
-  bookingId: string,
-  paymentMethod: string
+  params:
+    | {
+        toEmail: string;
+        userName: string;
+        booking: {
+          id: string;
+          paymentMethod: string;
+          quantity: number;
+          receiverName: string;
+          receiverPhone: string;
+          expectedDate?: Date;
+          notes?: string;
+          userEmail: string;
+          userPhone: string;
+          userAddress: string;
+        };
+      }
+    | {
+        // Backward compatibility simple shape
+        toEmail: string;
+        userName: string;
+        bookingId: string;
+        paymentMethod: string;
+      }
 ): Promise<boolean> => {
-  const template = emailTemplates.bookingConfirmation(userName, bookingId, paymentMethod);
-  return sendEmail({
-    to: email,
-    subject: template.subject,
-    html: template.html,
-    text: template.text,
+  if ('booking' in params) {
+    const template = emailTemplates.bookingConfirmationDetailed(params.userName, {
+      id: params.booking.id,
+      paymentMethod: params.booking.paymentMethod,
+      quantity: params.booking.quantity,
+      receiverName: params.booking.receiverName,
+      receiverPhone: params.booking.receiverPhone,
+      expectedDate: params.booking.expectedDate,
+      notes: params.booking.notes,
+      userEmail: params.booking.userEmail,
+      userPhone: params.booking.userPhone,
+      userAddress: params.booking.userAddress,
+    });
+    return sendEmail({ to: params.toEmail, subject: template.subject, html: template.html, text: template.text });
+  }
+  const template = emailTemplates.bookingConfirmationDetailed(params.userName, {
+    id: params.bookingId,
+    paymentMethod: params.paymentMethod,
+    quantity: 1,
+    receiverName: '-',
+    receiverPhone: '-',
+    expectedDate: undefined,
+    notes: undefined,
+    userEmail: '-',
+    userPhone: '-',
+    userAddress: '-',
   });
+  return sendEmail({ to: params.toEmail, subject: template.subject, html: template.html, text: template.text });
+};
+
+// Send booking request received email (pending approval)
+export const sendBookingRequestEmail = async (
+  params: {
+    toEmail: string;
+    userName: string;
+    booking: {
+      id: string;
+      paymentMethod: string;
+      quantity: number;
+      receiverName?: string;
+      receiverPhone?: string;
+      expectedDate?: Date;
+      notes?: string;
+      userEmail?: string;
+      userPhone?: string;
+      userAddress?: string;
+    };
+  }
+): Promise<boolean> => {
+  const template = emailTemplates.bookingRequestReceived(params.userName, params.booking);
+  return sendEmail({ to: params.toEmail, subject: template.subject, html: template.html, text: template.text });
 };
 
 // Send booking approval email
@@ -213,6 +361,21 @@ export const sendDeliveryConfirmationEmail = async (
   bookingId: string
 ): Promise<boolean> => {
   const template = emailTemplates.bookingDelivered(userName, bookingId);
+  return sendEmail({
+    to: email,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+};
+
+export const sendBookingCancellationEmail = async (
+  email: string,
+  userName: string,
+  bookingId: string,
+  cancelledBy: 'User' | 'Admin'
+): Promise<boolean> => {
+  const template = emailTemplates.bookingCancelled(userName, bookingId, cancelledBy);
   return sendEmail({
     to: email,
     subject: template.subject,

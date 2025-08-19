@@ -106,6 +106,34 @@ export const validateTokenSchema = z.object({
 // Booking validation schema (for future use)
 export const bookingSchema = z.object({
   paymentMethod: z.enum(['UPI', 'COD'] as const),
+  quantity: z
+    .number()
+    .min(1, 'Minimum quantity is 1')
+    .max(3, 'Maximum quantity is 3'),
+  receiverName: z
+    .string()
+    .min(2, 'Receiver name must be at least 2 characters')
+    .max(100, 'Receiver name is too long')
+    .regex(/^[a-zA-Z\s'-]+$/, 'Name can only contain letters, spaces, hyphens, and apostrophes')
+    .transform((name) => sanitizeInput(name.trim())),
+  receiverPhone: z
+    .string()
+    .regex(/^[6-9]\d{9}$/u, 'Invalid receiver phone number')
+    .transform((phone) => phone.replace(/\s/g, '')),
+  expectedDate: z
+    .string()
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      const date = new Date(val);
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      const max = new Date();
+      max.setDate(max.getDate() + 7);
+      max.setHours(23,59,59,999);
+      return date >= today && date <= max;
+    }, 'Expected delivery date must be within the next 7 days')
+    .transform((val) => (val ? new Date(val).toISOString() : undefined)),
   notes: z
     .string()
     .max(500, 'Notes are too long')

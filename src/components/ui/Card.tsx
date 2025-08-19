@@ -55,7 +55,7 @@ const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
     return (
       <h3
         ref={ref}
-        className={cn('text-lg font-semibold leading-none tracking-tight', className)}
+        className={cn('text-2xl font-semibold leading-none tracking-tight text-center text-blue-600', className)}
         {...props}
       >
         {children}
@@ -75,7 +75,7 @@ const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionProps>(
     return (
       <p
         ref={ref}
-        className={cn('text-sm text-gray-500', className)}
+        className={cn('text-sm text-gray-500 text-center', className)}
         {...props}
       >
         {children}
@@ -95,7 +95,7 @@ const CardContent = forwardRef<HTMLDivElement, CardContentProps>(
     return (
       <div
         ref={ref}
-        className={cn('p-6 pt-0', className)}
+        className={cn('p-6 pt-0 text-gray-900', className)}
         {...props}
       >
         {children}

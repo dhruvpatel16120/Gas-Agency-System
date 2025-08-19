@@ -4,7 +4,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { Flame, User, Calendar, Package } from 'lucide-react';
+import { User, Calendar, Package } from 'lucide-react';
+import UserNavbar from '@/components/UserNavbar';
 
 export default function UserDashboard() {
   const { data: session, status } = useSession();
@@ -34,26 +35,7 @@ export default function UserDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Flame className="w-8 h-8 text-blue-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Gas Agency System</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">Welcome, {session.user.name}</span>
-              <button
-                onClick={() => router.push('/api/auth/signout')}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <UserNavbar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -109,11 +91,17 @@ export default function UserDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                <button 
+                  onClick={() => router.push('/user/book')}
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                >
                   <h3 className="font-semibold text-gray-900">Book New Cylinder</h3>
                   <p className="text-sm text-gray-600">Order a new gas cylinder</p>
                 </button>
-                <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left">
+                <button 
+                  onClick={() => router.push('/user/bookings')}
+                  className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                >
                   <h3 className="font-semibold text-gray-900">View Booking History</h3>
                   <p className="text-sm text-gray-600">Check your past orders</p>
                 </button>
