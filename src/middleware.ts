@@ -6,6 +6,7 @@ export default withAuth(
     const token = req.nextauth.token;
     const isAuth = !!token;
     const isAuthPage = req.nextUrl.pathname.startsWith('/login') || 
+                      req.nextUrl.pathname.startsWith('/admin/login') ||
                       req.nextUrl.pathname.startsWith('/register') ||
                       req.nextUrl.pathname.startsWith('/forgot-password') ||
                       req.nextUrl.pathname.startsWith('/reset-password') ||
@@ -23,10 +24,10 @@ export default withAuth(
       }
     }
 
-    // Protect admin routes
-    if (isAdminPage) {
+    // Protect admin routes (except admin login page)
+    if (isAdminPage && !req.nextUrl.pathname.startsWith('/admin/login')) {
       if (!isAuth) {
-        return NextResponse.redirect(new URL('/login', req.url));
+        return NextResponse.redirect(new URL('/admin/login', req.url));
       }
       if (token?.role !== 'ADMIN') {
         return NextResponse.redirect(new URL('/user', req.url));
@@ -46,6 +47,7 @@ export default withAuth(
         // Allow auth pages without authentication
         if (
           req.nextUrl.pathname.startsWith('/login') ||
+          req.nextUrl.pathname.startsWith('/admin/login') ||
           req.nextUrl.pathname.startsWith('/register') ||
           req.nextUrl.pathname.startsWith('/forgot-password') ||
           req.nextUrl.pathname.startsWith('/reset-password') ||
@@ -62,6 +64,7 @@ export default withAuth(
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/admin/login',
     '/user/:path*',
     '/login',
     '/register',

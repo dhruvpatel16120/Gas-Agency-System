@@ -10,7 +10,8 @@ export const authOptions: NextAuthOptions = {
       name: 'credentials',
       credentials: {
         email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' }
+        password: { label: 'Password', type: 'password' },
+        admin: { label: 'Admin Login', type: 'text', placeholder: 'false' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -35,8 +36,15 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
-          // Check if email is verified (only for non-admin users)
-          if (user.role !== 'ADMIN' && !user.emailVerified) {
+          const isAdminAttempt = String(credentials.admin || '').toLowerCase() === 'true';
+
+          // If this is an admin login attempt, enforce admin role
+          if (isAdminAttempt && user.role !== 'ADMIN') {
+            throw new Error('Admin account required');
+          }
+
+          // For non-admin logins, enforce email verification
+          if (!isAdminAttempt && user.role !== 'ADMIN' && !user.emailVerified) {
             throw new Error('Please verify your email address before logging in');
           }
 
