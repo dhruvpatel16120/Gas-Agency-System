@@ -1,20 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button, Input, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui';
-import { Flame, Eye, EyeOff, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Flame, Eye, EyeOff, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { validatePassword, generateUserId } from '@/lib/utils';
+import { validatePassword } from '@/lib/utils';
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({
-    name: '',
-    userId: '',
-    email: '',
-    phone: '', 
-    address: '',
     password: '',
     confirmPassword: '',
   });
@@ -26,61 +21,54 @@ export default function RegisterPage() {
     isValid: boolean;
     errors: string[];
   }>({ isValid: false, errors: [] });
-  
-  const router = useRouter();
+  const [tokenValid, setTokenValid] = useState<boolean | null>(null);
+  const [token, setToken] = useState<string>('');
 
-  // Auto-generate User ID on component mount
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      userId: generateUserId()
-    }));
-  }, []);
+    const tokenParam = searchParams.get('token');
+    if (!tokenParam) {
+      toast.error('Invalid reset link');
+      router.push('/forgot-password');
+      return;
+    }
+    setToken(tokenParam);
+    validateResetToken(tokenParam);
+  }, [searchParams, router]);
+
+  const validateResetToken = async (resetToken: string) => {
+    try {
+      const response = await fetch('/api/auth/validate-reset-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token: resetToken }),
+      });
+
+      if (response.ok) {
+        setTokenValid(true);
+      } else {
+        setTokenValid(false);
+        toast.error('Invalid or expired reset link');
+      }
+    } catch {
+      setTokenValid(false);
+      toast.error('Failed to validate reset link');
+    }
+  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    // Name validation
-    if (!formData.name.trim()) {
-      newErrors.name = 'Full name is required';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
-    }
-
-    // User ID validation (auto-generated, just check if exists)
-    if (!formData.userId.trim()) {
-      newErrors.userId = 'User ID is required';
-    }
-
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    // Phone validation (Indian format)
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^[6-9]\d{9}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid 10-digit phone number';
-    }
-
-    // Address validation
-    if (!formData.address.trim()) {
-      newErrors.address = 'Address is required';
-    } else if (formData.address.trim().length < 10) {
-      newErrors.address = 'Address must be at least 10 characters';
-    }
-
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (!passwordStrength.isValid) {
       newErrors.password = 'Password does not meet requirements';
     }
 
-    // Confirm password validation
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
     } else if (formData.password !== formData.confirmPassword) {
@@ -96,17 +84,6 @@ export default function RegisterPage() {
     setPasswordStrength(strength);
   };
 
-  const regenerateUserId = () => {
-    setFormData(prev => ({
-      ...prev,
-      userId: generateUserId()
-    }));
-    // Clear any existing User ID errors
-    if (errors.userId) {
-      setErrors(prev => ({ ...prev, userId: '' }));
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -118,40 +95,32 @@ export default function RegisterPage() {
     setErrors({});
 
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: formData.name.trim(),
-          userId: formData.userId.trim(),
-          email: formData.email.toLowerCase(),
-          phone: formData.phone.replace(/\s/g, ''),
-          address: formData.address.trim(),
+          token,
           password: formData.password,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        if (data.error === 'EMAIL_EXISTS') {
-          setErrors({ email: 'An account with this email already exists' });
-          toast.error('An account with this email already exists');
-        } else if (data.error === 'USER_ID_EXISTS') {
-          setErrors({ userId: 'This User ID is already taken' });
-          toast.error('This User ID is already taken');
+      if (response.ok) {
+        toast.success('Password reset successfully!');
+        router.push('/login');
+      } else {
+        if (data.error === 'INVALID_TOKEN') {
+          toast.error('Invalid or expired reset link');
+          router.push('/forgot-password');
         } else {
-          toast.error(data.message || 'Registration failed');
+          toast.error(data.message || 'Failed to reset password');
         }
-        return;
       }
-
-      toast.success('Registration successful! Please sign in.');
-      router.push('/login');
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('Reset password error:', error);
       toast.error('An error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -161,16 +130,52 @@ export default function RegisterPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
 
-    // Handle password strength validation
     if (field === 'password') {
       handlePasswordChange(value);
     }
   };
+
+  if (tokenValid === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Validating reset link...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokenValid === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Invalid Reset Link</h1>
+            <p className="text-gray-600">The reset link is invalid or has expired</p>
+          </div>
+
+          <Card className="shadow-xl">
+            <CardContent className="text-center py-8">
+              <p className="text-gray-600 mb-6">
+                Please request a new password reset link.
+              </p>
+              <Link href="/forgot-password">
+                <Button className="w-full">Request New Reset Link</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -181,102 +186,30 @@ export default function RegisterPage() {
             <Flame className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Gas Agency System</h1>
-          <p className="text-gray-600">Create your account</p>
+          <p className="text-gray-600">Reset your password</p>
         </div>
 
-        {/* Registration Card */}
+        {/* Reset Password Card */}
         <Card className="shadow-xl">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-semibold text-blue-600">Join Us</CardTitle>
-            <p className="text-gray-600">Fill in your details to create an account</p>
+            <CardTitle className="text-2xl font-semibold text-blue-600">Set New Password</CardTitle>
+            <p className="text-gray-600">Enter your new password below</p>
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
-              {/* Name Input */}
-              <Input
-                label="Full Name"
-                type="text"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                error={errors.name}
-                required
-                autoComplete="name"
-              />
-
-              {/* User ID Input */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-medium text-gray-700">User ID</label>
-                  <button
-                    type="button"
-                    onClick={regenerateUserId}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    Regenerate
-                  </button>
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Auto-generated User ID"
-                  value={formData.userId}
-                  onChange={(e) => handleInputChange('userId', e.target.value)}
-                  error={errors.userId}
-                  required
-                  disabled
-                  helperText="Your unique identifier (auto-generated)"
-                />
-              </div>
-
-              {/* Email Input */}
-              <Input
-                label="Email Address"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                error={errors.email}
-                required
-                autoComplete="email"
-              />
-
-              {/* Phone Input */}
-              <Input
-                label="Phone Number"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                error={errors.phone}
-                required
-                autoComplete="tel"
-              />
-
-              {/* Address Input */}
-              <Input
-                label="Address"
-                type="text"
-                placeholder="Enter your complete address"
-                value={formData.address}
-                onChange={(e) => handleInputChange('address', e.target.value)}
-                error={errors.address}
-                required
-                autoComplete="street-address"
-              />
-
               {/* Password Input */}
               <div className="relative">
                 <Input
-                  label="Password"
+                  label="New Password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Create a strong password"
+                  placeholder="Enter your new password"
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   error={errors.password}
                   required
                   autoComplete="new-password"
+                  icon={<Lock className="w-4 h-4" />}
                 />
                 <button
                   type="button"
@@ -317,14 +250,15 @@ export default function RegisterPage() {
               {/* Confirm Password Input */}
               <div className="relative">
                 <Input
-                  label="Confirm Password"
+                  label="Confirm New Password"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  placeholder="Confirm your password"
+                  placeholder="Confirm your new password"
                   value={formData.confirmPassword}
                   onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                   error={errors.confirmPassword}
                   required
                   autoComplete="new-password"
+                  icon={<Lock className="w-4 h-4" />}
                 />
                 <button
                   type="button"
@@ -353,19 +287,16 @@ export default function RegisterPage() {
                 loading={loading}
                 disabled={loading}
               >
-                {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? 'Resetting Password...' : 'Reset Password'}
               </Button>
 
               <div className="text-center">
-                <p className="text-sm text-gray-600">
-                  Already have an account?{' '}
-                  <Link
-                    href="/login"
-                    className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                  >
-                    Sign in here
-                  </Link>
-                </p>
+                <Link
+                  href="/login"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                >
+                  Back to Login
+                </Link>
               </div>
             </CardFooter>
           </form>

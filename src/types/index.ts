@@ -59,7 +59,7 @@ export type SessionUser = {
 };
 
 // API Response Types
-export type ApiResponse<T = any> = {
+export type ApiResponse<T = unknown> = {
   success: boolean;
   data?: T;
   error?: string;

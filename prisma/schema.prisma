@@ -22,6 +22,10 @@ model User {
   remainingQuota  Int       @default(12)
   emailVerified   DateTime?
   image           String?
+  resetToken      String?
+  resetTokenExpiry DateTime?
+  emailVerificationToken String?
+  emailVerificationExpiry DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

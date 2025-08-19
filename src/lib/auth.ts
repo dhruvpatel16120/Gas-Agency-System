@@ -1,12 +1,10 @@
 import { NextAuthOptions } from 'next-auth';
-import { PrismaAdapter } from '@auth/prisma-adapter';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { prisma } from './db';
 import { verifyPassword } from './utils';
 import { UserRole } from '@prisma/client';
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -37,12 +35,17 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Check if email is verified (only for non-admin users)
+          if (user.role !== 'ADMIN' && !user.emailVerified) {
+            throw new Error('Please verify your email address before logging in');
+          }
+
           return {
             id: user.id,
             email: user.email,
             name: user.name,
             role: user.role,
-            image: user.image,
+            image: user.image || undefined,
           };
         } catch (error) {
           console.error('Auth error:', error);
@@ -80,7 +83,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/login',
-    signUp: '/register',
     error: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,

@@ -158,6 +158,13 @@ export function generateBookingId(): string {
   return `BK${timestamp}${random}`.toUpperCase();
 }
 
+// Generate user ID
+export function generateUserId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substr(2, 4);
+  return `USER${timestamp}${random}`.toUpperCase();
+}
+
 // Pagination helper
 export function getPaginationInfo(
   page: number,
@@ -189,7 +196,7 @@ export function getPaginationInfo(
 }
 
 // Debounce function
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -201,7 +208,7 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 // Throttle function
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {

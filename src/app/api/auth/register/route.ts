@@ -1,115 +1,110 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/utils';
-import { sendWelcomeEmail } from '@/lib/email';
-import { z } from 'zod';
+import { sendWelcomeEmail, sendEmailVerification } from '@/lib/email';
+import { registerSchema } from '@/lib/validation';
+import { withEmailRateLimit, parseRequestBody, successResponse } from '@/lib/api-middleware';
+import { 
+  ConflictError, 
+  InternalServerError 
+} from '@/lib/error-handler';
+import { sanitizeInput } from '@/lib/security';
+import { Prisma } from '@prisma/client';
+import crypto from 'crypto';
 
-// Validation schema
-const registerSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  userId: z.string().min(3, 'User ID must be at least 3 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().regex(/^[6-9]\d{9}$/, 'Invalid phone number'),
-  address: z.string().min(10, 'Address must be at least 10 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
+async function registerHandler(request: NextRequest) {
+  // Parse and validate request body
+  const body = await parseRequestBody(request);
+  const validatedData = registerSchema.parse(body);
+  const { name, userId, email, phone, address, password } = validatedData;
 
-export async function POST(request: NextRequest) {
+  // Check for existing email and userId in parallel
+  const [existingEmail, existingUserId] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email },
+      select: { id: true }
+    }),
+    prisma.user.findUnique({
+      where: { userId },
+      select: { id: true }
+    })
+  ]);
+
+  if (existingEmail) {
+    throw new ConflictError('An account with this email already exists', {
+      field: 'email',
+      code: 'EMAIL_EXISTS'
+    });
+  }
+
+  if (existingUserId) {
+    throw new ConflictError('This User ID is already taken', {
+      field: 'userId',
+      code: 'USER_ID_EXISTS'
+    });
+  }
+
+  // Hash password with error handling
+  let hashedPassword: string;
   try {
-    const body = await request.json();
+    hashedPassword = await hashPassword(password);
+  } catch (error) {
+    console.error('Password hashing failed:', error);
+    throw new InternalServerError('Failed to process password');
+  }
 
-    // Validate input
-    const validationResult = registerSchema.safeParse(body);
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Validation failed', 
-          errors: validationResult.error.errors 
-        },
-        { status: 400 }
-      );
-    }
+  // Generate email verification token
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    const { name, userId, email, phone, address, password } = validationResult.data;
-
-    // Check if email already exists
-    const existingEmail = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
-    });
-
-    if (existingEmail) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'EMAIL_EXISTS',
-          message: 'An account with this email already exists' 
-        },
-        { status: 409 }
-      );
-    }
-
-    // Check if user ID already exists
-    const existingUserId = await prisma.user.findUnique({
-      where: { userId }
-    });
-
-    if (existingUserId) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'USER_ID_EXISTS',
-          message: 'This User ID is already taken' 
-        },
-        { status: 409 }
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-
-    // Create user
-    const user = await prisma.user.create({
+  // Create user with transaction for data consistency
+  const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    return await tx.user.create({
       data: {
-        name,
-        userId,
-        email: email.toLowerCase(),
+        name: sanitizeInput(name),
+        userId: userId.toLowerCase(),
+        email,
         phone,
-        address,
+        address: sanitizeInput(address),
         password: hashedPassword,
         role: 'USER',
-        remainingQuota: 12, // Default quota
+        remainingQuota: 12,
+        emailVerificationToken: verificationToken,
+        emailVerificationExpiry: verificationExpiry,
+      },
+      select: {
+        id: true,
+        name: true,
+        userId: true,
+        email: true,
+        phone: true,
+        address: true,
+        role: true,
+        remainingQuota: true,
+        createdAt: true,
       },
     });
+  });
 
-    // Send welcome email (non-blocking)
-    try {
-      await sendWelcomeEmail(email, name);
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
-      // Don't fail registration if email fails
-    }
+  // Send emails asynchronously (non-blocking)
+  Promise.allSettled([
+    sendWelcomeEmail(email, name),
+    sendEmailVerification(email, name, verificationToken)
+  ]).then((results) => {
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const emailType = index === 0 ? 'welcome' : 'verification';
+        console.error(`Failed to send ${emailType} email:`, result.reason);
+      }
+    });
+  });
 
-    // Return success response (without password)
-    const { password: _, ...userWithoutPassword } = user;
-
-    return NextResponse.json(
-      { 
-        success: true, 
-        message: 'User registered successfully',
-        data: userWithoutPassword
-      },
-      { status: 201 }
-    );
-
-  } catch (error) {
-    console.error('Registration error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: 'Internal server error' 
-      },
-      { status: 500 }
-    );
-  }
+  return successResponse(
+    user,
+    'User registered successfully. Please check your email to verify your account.',
+    201
+  );
 }
+
+// Export with middleware
+export const POST = withEmailRateLimit(registerHandler);

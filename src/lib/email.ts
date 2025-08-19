@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import { EmailData, EmailTemplate } from '@/types';
 
 // Create transporter for Gmail SMTP
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST || 'smtp.gmail.com',
   port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
   secure: false, // true for 465, false for other ports
@@ -143,6 +143,24 @@ export const emailTemplates = {
     `,
     text: `Password Reset Request - Hello ${userName}, We received a request to reset your password. Please visit: ${resetLink}`,
   }),
+
+  emailVerification: (userName: string, verificationLink: string): EmailTemplate => ({
+    subject: 'Email Verification - Gas Agency System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #006d3b;">Verify Your Email Address</h2>
+        <p>Hello ${userName},</p>
+        <p>Thank you for registering with Gas Agency System! Please verify your email address by clicking the button below:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${verificationLink}" style="background-color: #006d3b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email</a>
+        </div>
+        <p>This verification link will expire in 24 hours.</p>
+        <p>If you didn't create an account, please ignore this email.</p>
+        <p>Best regards,<br>Gas Agency Team</p>
+      </div>
+    `,
+    text: `Email Verification - Hello ${userName}, Please verify your email address by visiting: ${verificationLink}`,
+  }),
 };
 
 // Send welcome email
@@ -207,9 +225,26 @@ export const sendDeliveryConfirmationEmail = async (
 export const sendPasswordResetEmail = async (
   email: string,
   userName: string,
-  resetLink: string
+  resetToken: string
 ): Promise<boolean> => {
+  const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${resetToken}`;
   const template = emailTemplates.passwordReset(userName, resetLink);
+  return sendEmail({
+    to: email,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+};
+
+// Send email verification
+export const sendEmailVerification = async (
+  email: string,
+  userName: string,
+  verificationToken: string
+): Promise<boolean> => {
+  const verificationLink = `${process.env.NEXTAUTH_URL}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+  const template = emailTemplates.emailVerification(userName, verificationLink);
   return sendEmail({
     to: email,
     subject: template.subject,
