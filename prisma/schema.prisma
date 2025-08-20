@@ -103,6 +103,10 @@ model Booking {
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   events   BookingEvent[]
   payments Payment[]
+  // Reverse relations for inventory and delivery
+  reservation StockReservation?
+  assignment  DeliveryAssignment?
+  adjustments StockAdjustment[]
 
   @@map("bookings")
 }
@@ -215,4 +219,134 @@ enum ContactStatus {
   OPEN
   RESOLVED
   ARCHIVED
+}
+
+// Inventory management
+model CylinderStock {
+  id             String   @id @default("default")
+  totalAvailable Int      @default(0)
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  adjustments StockAdjustment[]
+  reservations StockReservation[]
+
+  @@map("cylinder_stock")
+}
+
+model StockAdjustment {
+  id        String               @id @default(cuid())
+  stockId   String
+  delta     Int
+  type      StockAdjustmentType  @default(CORRECTION)
+  reason    String?
+  notes     String?
+  bookingId String?
+  batchId   String?
+  createdAt DateTime             @default(now())
+
+  stock   CylinderStock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  booking Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  batch   CylinderBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([stockId])
+  @@index([bookingId])
+  @@index([batchId])
+  @@map("stock_adjustments")
+}
+
+model StockReservation {
+  id         String                 @id @default(cuid())
+  stockId    String
+  bookingId  String
+  quantity   Int
+  status     StockReservationStatus @default(RESERVED)
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  stock   CylinderStock @relation(fields: [stockId], references: [id], onDelete: Cascade)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([stockId])
+  @@unique([bookingId])
+  @@map("stock_reservations")
+}
+
+enum StockReservationStatus {
+  RESERVED
+  RELEASED
+  CONSUMED
+}
+
+enum StockAdjustmentType {
+  RECEIVE
+  ISSUE
+  DAMAGE
+  AUDIT
+  CORRECTION
+}
+
+model CylinderBatch {
+  id          String           @id @default(cuid())
+  supplier    String
+  invoiceNo   String?
+  quantity    Int
+  receivedAt  DateTime         @default(now())
+  notes       String?
+  status      BatchStatus      @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  adjustments StockAdjustment[]
+
+  @@map("cylinder_batches")
+}
+
+enum BatchStatus {
+  ACTIVE
+  DEPLETED
+  EXPIRED
+}
+
+// Delivery partners and assignments
+model DeliveryPartner {
+  id             String   @id @default(cuid())
+  name           String
+  phone          String
+  email          String?
+  vehicleNumber  String?
+  serviceArea    String?
+  capacityPerDay Int      @default(20)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments DeliveryAssignment[]
+
+  @@map("delivery_partners")
+}
+
+model DeliveryAssignment {
+  id         String                   @id @default(cuid())
+  bookingId  String
+  partnerId  String
+  status     DeliveryAssignmentStatus @default(ASSIGNED)
+  notes      String?
+  assignedAt DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  booking Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  partner DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId])
+  @@index([partnerId])
+  @@map("delivery_assignments")
+}
+
+enum DeliveryAssignmentStatus {
+  ASSIGNED
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
 }

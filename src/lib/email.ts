@@ -1,16 +1,19 @@
 import nodemailer from 'nodemailer';
 import { EmailData, EmailTemplate } from '@/types';
 
-// Create transporter for Gmail SMTP
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_SERVER_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
+// Email configuration
+const emailConfig = {
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false, // true for 465, false for other ports
   auth: {
-    user: process.env.EMAIL_SERVER_USER,
-    pass: process.env.EMAIL_SERVER_PASSWORD,
-  },
-});
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || ''
+  }
+};
+
+// Create transporter
+const transporter = nodemailer.createTransport(emailConfig);
 
 // Verify transporter connection
 export const verifyEmailConnection = async () => {
@@ -25,14 +28,29 @@ export const verifyEmailConnection = async () => {
 };
 
 // Send email function
-export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  text?: string
+): Promise<boolean> {
   try {
+    // If no SMTP credentials, log the email instead
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('=== EMAIL WOULD BE SENT ===');
+      console.log('To:', to);
+      console.log('Subject:', subject);
+      console.log('HTML:', html);
+      console.log('===========================');
+      return true; // Simulate success for development
+    }
+
     const mailOptions = {
-      from: process.env.EMAIL_SERVER_USER,
-      to: emailData.to,
-      subject: emailData.subject,
-      html: emailData.html,
-      text: emailData.text || emailData.html.replace(/<[^>]*>/g, ''),
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+      html
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -42,7 +60,98 @@ export const sendEmail = async (emailData: EmailData): Promise<boolean> => {
     console.error('Failed to send email:', error);
     return false;
   }
-};
+}
+
+// Send payment reminder email
+export async function sendPaymentReminder(
+  userEmail: string,
+  userName: string,
+  bookingId: string,
+  amount: number,
+  paymentMethod: string
+): Promise<boolean> {
+  const subject = `Payment Reminder - Booking ${bookingId}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #dc2626;">Payment Reminder</h2>
+      <p>Dear ${userName},</p>
+      <p>Your gas cylinder booking is pending payment completion.</p>
+      
+      <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Payment Details:</h3>
+        <p><strong>Booking ID:</strong> ${bookingId}</p>
+        <p><strong>Amount Due:</strong> ₹${amount}</p>
+        <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+        <p><strong>Status:</strong> Pending</p>
+      </div>
+
+      <p>Please complete your payment to proceed with the delivery.</p>
+      <p>If you have any questions, please contact our support team.</p>
+      <p>Thank you!</p>
+    </div>
+  `;
+
+  return await sendEmail(userEmail, subject, html);
+}
+
+// Send cancellation email with reason
+export async function sendCancellationEmail(
+  userEmail: string,
+  userName: string,
+  bookingId: string,
+  reason: string
+): Promise<boolean> {
+  const subject = `Booking Cancellation - ${bookingId}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #dc2626;">Booking Cancellation</h2>
+      <p>Dear ${userName},</p>
+      <p>Your gas cylinder booking has been cancelled.</p>
+      
+      <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Cancellation Details:</h3>
+        <p><strong>Booking ID:</strong> ${bookingId}</p>
+        <p><strong>Cancellation Reason:</strong> ${reason}</p>
+      </div>
+
+      <p>If you have any questions about this cancellation, please contact our support team.</p>
+      <p>We apologize for any inconvenience caused.</p>
+      <p>Thank you for understanding.</p>
+    </div>
+  `;
+
+  return await sendEmail(userEmail, subject, html);
+}
+
+// Send delivery status update email
+export async function sendDeliveryStatusEmail(
+  userEmail: string,
+  userName: string,
+  bookingId: string,
+  status: string,
+  additionalInfo?: string
+): Promise<boolean> {
+  const subject = `Delivery Status Update - ${bookingId}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #059669;">Delivery Status Update</h2>
+      <p>Dear ${userName},</p>
+      <p>Your gas cylinder delivery status has been updated.</p>
+      
+      <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Status Update:</h3>
+        <p><strong>Booking ID:</strong> ${bookingId}</p>
+        <p><strong>New Status:</strong> ${status}</p>
+        ${additionalInfo ? `<p><strong>Additional Info:</strong> ${additionalInfo}</p>` : ''}
+      </div>
+
+      <p>We will keep you updated on any further changes.</p>
+      <p>Thank you!</p>
+    </div>
+  `;
+
+  return await sendEmail(userEmail, subject, html);
+}
 
 // Email templates
 export const emailTemplates = {
@@ -148,6 +257,30 @@ export const emailTemplates = {
       </div>
     `,
     text: `Cylinder Delivered - Hello ${userName}, Your gas cylinder has been successfully delivered! Booking ID: ${bookingId}`,
+  }),
+
+  outForDelivery: (
+    userName: string,
+    bookingId: string,
+    partner?: { name?: string; phone?: string }
+  ): EmailTemplate => ({
+    subject: 'Out for Delivery - Gas Agency System',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #006d3b;">Your Cylinder Is Out for Delivery</h2>
+        <p>Hello ${userName},</p>
+        <p>Your gas cylinder is on its way.</p>
+        <div style="background-color: #eef7ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Booking ID:</strong> ${bookingId}</p>
+          <p><strong>Status:</strong> Out for Delivery</p>
+          ${partner?.name ? `<p><strong>Delivery Partner:</strong> ${partner.name}</p>` : ''}
+          ${partner?.phone ? `<p><strong>Contact:</strong> ${partner.phone}</p>` : ''}
+        </div>
+        <p>Please ensure someone is available to receive the delivery.</p>
+        <p>Best regards,<br>Gas Agency Team</p>
+      </div>
+    `,
+    text: `Out for Delivery - Hello ${userName}, Your cylinder for booking ${bookingId} is out for delivery.${partner?.name ? ` Partner: ${partner.name}.` : ''}${partner?.phone ? ` Contact: ${partner.phone}.` : ''}`,
   }),
 
   bookingCancelled: (userName: string, bookingId: string, cancelledBy: 'User' | 'Admin'): EmailTemplate => ({
@@ -426,6 +559,21 @@ export const sendBookingCancellationEmail = async (
   cancelledBy: 'User' | 'Admin'
 ): Promise<boolean> => {
   const template = emailTemplates.bookingCancelled(userName, bookingId, cancelledBy);
+  return sendEmail({
+    to: email,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+};
+
+export const sendOutForDeliveryEmail = async (
+  email: string,
+  userName: string,
+  bookingId: string,
+  partner?: { name?: string; phone?: string }
+): Promise<boolean> => {
+  const template = emailTemplates.outForDelivery(userName, bookingId, partner);
   return sendEmail({
     to: email,
     subject: template.subject,

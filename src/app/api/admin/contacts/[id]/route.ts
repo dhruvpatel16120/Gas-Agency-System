@@ -4,8 +4,9 @@ import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-mid
 import { NotFoundError } from '@/lib/error-handler';
 
 async function getContactHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  const raw = (context as any)?.params;
+  const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
+  const id = (awaited?.id as string) || undefined;
   if (!id) throw new NotFoundError('Contact ID is required');
 
   const item = await (prisma as any).contactMessage.findUnique({
@@ -42,8 +43,9 @@ async function getContactHandler(_request: NextRequest, context?: Record<string,
 }
 
 async function updateContactHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  const raw = (context as any)?.params;
+  const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
+  const id = (awaited?.id as string) || undefined;
   if (!id) throw new NotFoundError('Contact ID is required');
 
   const body = await parseRequestBody<Record<string, unknown>>(request);

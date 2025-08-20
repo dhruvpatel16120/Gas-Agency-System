@@ -15,7 +15,14 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<{ name: string; remainingQuota: number; emailVerified?: string | null } | null>(null);
   const [totalBookings, setTotalBookings] = useState<number>(0);
-  const [recentBookings, setRecentBookings] = useState<Array<{ id: string; status: any; quantity?: number | null; paymentMethod: 'COD' | 'UPI'; createdAt: string }>>([]);
+  const [recentBookings, setRecentBookings] = useState<Array<{ 
+    id: string; 
+    status: any; 
+    quantity?: number | null; 
+    paymentMethod: 'COD' | 'UPI'; 
+    paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
+    createdAt: string 
+  }>>([]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -130,7 +137,18 @@ export default function UserDashboard() {
                     <div key={b.id} className="py-3 flex items-center justify-between gap-3 group">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">Booking #{b.id.slice(0, 8)}</p>
-                        <p className="text-xs text-gray-600">{formatDate(b.createdAt)} · Qty: {b.quantity ?? 1} · {b.paymentMethod}</p>
+                        <p className="text-xs text-gray-600">
+                          {formatDate(b.createdAt)} · Qty: {b.quantity ?? 1} · {b.paymentMethod}
+                          {b.paymentStatus && (
+                            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-medium ${
+                              b.paymentStatus === 'SUCCESS' ? 'bg-green-100 text-green-800' :
+                              b.paymentStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {b.paymentStatus}
+                            </span>
+                          )}
+                        </p>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${getStatusColor(b.status)}`}>{b.status}</span>

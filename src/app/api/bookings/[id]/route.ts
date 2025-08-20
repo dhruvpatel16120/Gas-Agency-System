@@ -1,168 +1,233 @@
-import { NextRequest } from 'next/server';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-middleware';
-import { NotFoundError, ConflictError } from '@/lib/error-handler';
-import { BookingStatus } from '@prisma/client';
-import { sendBookingApprovalEmail, sendDeliveryConfirmationEmail, sendBookingCancellationEmail } from '@/lib/email';
-import { calculateDeliveryDate } from '@/lib/utils';
 
-const updateSchema = z.object({
-  status: z.enum(['APPROVED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED']),
-  // Optional explicit delivery date (ISO string)
-  deliveryDate: z.string().datetime().optional(),
-  notes: z.string().max(500).optional(),
-});
+// GET - Fetch individual booking
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
 
-async function updateBookingHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const session = context?.session as { user: { id: string; role?: 'ADMIN' | 'USER' } } | undefined;
-  if (!session?.user?.id) {
-    throw new NotFoundError('User session not found');
-  }
+    const bookingId = params.id;
 
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id || request.url.split('/').slice(-2)[0];
-
-  if (!id) {
-    throw new NotFoundError('Booking ID is required');
-  }
-
-  const body = await parseRequestBody(request);
-  const { status, deliveryDate, notes } = updateSchema.parse(body);
-
-  // Load booking and user
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: { user: { select: { id: true, email: true, name: true } } },
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            address: true
+          }
+        },
+        payments: {
+          orderBy: { createdAt: 'desc' }
+        },
+        deliveryAssignment: {
+          include: {
+            partner: {
+              select: {
+                id: true,
+                name: true,
+                phone: true
+              }
+            }
+          }
+        },
+        events: {
+          orderBy: { createdAt: 'desc' }
+        }
+      }
   });
 
   if (!booking) {
-    throw new NotFoundError('Booking not found');
+      return NextResponse.json(
+        { success: false, message: 'Booking not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if user can access this booking
+    if (session.user.role !== 'ADMIN' && booking.userId !== session.user.id) {
+      return NextResponse.json(
+        { success: false, message: 'Access denied' },
+        { status: 403 }
+      );
+    }
+
+    // Transform data for frontend
+    const transformedBooking = {
+      id: booking.id,
+      userId: booking.userId,
+      userName: booking.user.name,
+      userEmail: booking.user.email,
+      userPhone: booking.user.phone,
+      userAddress: booking.user.address,
+      paymentMethod: booking.paymentMethod,
+      quantity: booking.quantity,
+      receiverName: booking.receiverName,
+      receiverPhone: booking.receiverPhone,
+      status: booking.status,
+      requestedAt: booking.requestedAt,
+      expectedDate: booking.expectedDate,
+      deliveryDate: booking.deliveryDate,
+      deliveredAt: booking.deliveredAt,
+      notes: booking.notes,
+      paymentStatus: booking.payments[0]?.status || 'PENDING',
+      paymentAmount: booking.payments[0]?.amount,
+      deliveryPartnerId: booking.deliveryAssignment?.partnerId,
+      deliveryPartnerName: booking.deliveryAssignment?.partner?.name,
+      cylinderReserved: booking.cylinderReserved,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt
+    };
+
+    return NextResponse.json({
+      success: true,
+      data: transformedBooking
+    });
+  } catch (error) {
+    console.error('Failed to fetch booking:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to fetch booking' },
+      { status: 500 }
+    );
   }
+}
 
-  // Users can only cancel their own pending bookings; admin can change any
-  const isAdmin = session.user.role === 'ADMIN';
-  if (!isAdmin) {
-    if (status !== 'CANCELLED' || booking.userId !== session.user.id || booking.status !== 'PENDING') {
-      throw new ConflictError('You are not allowed to perform this action');
-    }
-  }
-
-  // Transactional update with quota adjustments
-  const updated = await prisma.$transaction(async (tx) => {
-    // Prepare update data
-    const data: Record<string, unknown> = { status };
-
-    if (status === 'APPROVED') {
-      const date = deliveryDate ? new Date(deliveryDate) : calculateDeliveryDate();
-      data.deliveryDate = date;
+// PUT - Update booking
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    if (status === 'DELIVERED') {
-      data.deliveredAt = new Date();
+    const bookingId = params.id;
+    const body = await request.json();
+    const {
+      quantity,
+      paymentMethod,
+      receiverName,
+      receiverPhone,
+      expectedDate,
+      notes,
+      userAddress,
+      status
+    } = body;
+
+    // Get current booking
+    const currentBooking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: { quantity: true, userId: true, status: true }
+    });
+
+    if (!currentBooking) {
+      return NextResponse.json(
+        { success: false, message: 'Booking not found' },
+        { status: 404 }
+      );
     }
 
-    if (status === 'CANCELLED') {
-      // Return quota to user if we are cancelling a non-cancelled booking
-      if (booking.status !== 'CANCELLED') {
-        await tx.user.update({
-          where: { id: booking.userId },
-          data: { remainingQuota: { increment: 1 } },
+    // Handle quantity changes
+    if (quantity && quantity !== currentBooking.quantity) {
+      const quantityDiff = quantity - currentBooking.quantity;
+      
+      // Check if user has enough quota for increase
+      if (quantityDiff > 0) {
+        const user = await prisma.user.findUnique({
+          where: { id: currentBooking.userId },
+          select: { remainingQuota: true }
+        });
+
+        if (!user || user.remainingQuota < quantityDiff) {
+          return NextResponse.json(
+            { success: false, message: 'User quota exceeded' },
+            { status: 400 }
+          );
+        }
+
+        // Update user quota
+        await prisma.user.update({
+          where: { id: currentBooking.userId },
+          data: { remainingQuota: { decrement: quantityDiff } }
+        });
+      } else if (quantityDiff < 0) {
+        // Increase user quota if quantity decreased
+        await prisma.user.update({
+          where: { id: currentBooking.userId },
+          data: { remainingQuota: { increment: Math.abs(quantityDiff) } }
         });
       }
     }
 
-    if (notes) {
-      data.notes = notes;
-    }
-
-    const result = await tx.booking.update({
-      where: { id: booking.id },
-      data,
-    });
-
-    // Notification creation removed
-
-    // Tracking events
-    const eventTitleMap: Record<string, string> = {
-      APPROVED: 'Admin Approved',
-      OUT_FOR_DELIVERY: 'Out for Delivery',
-      DELIVERED: 'Delivered',
-      CANCELLED: 'Cancelled',
-    };
-    await (tx as any).bookingEvent.create({
+    // Update booking
+    const updatedBooking = await prisma.booking.update({
+      where: { id: bookingId },
       data: {
-        bookingId: booking.id,
+        quantity,
+        paymentMethod,
+        receiverName,
+        receiverPhone,
+        expectedDate: expectedDate ? new Date(expectedDate) : null,
+        notes,
+        userAddress,
         status,
-        title: eventTitleMap[status] || 'Updated',
-        description:
-          status === 'APPROVED'
-            ? 'Your booking has been approved.'
-            : status === 'OUT_FOR_DELIVERY'
-            ? 'Your cylinder is out for delivery.'
-            : status === 'DELIVERED'
-            ? 'Your cylinder was delivered.'
-            : `${(isAdmin ? 'Admin' : 'User')} cancelled the booking.`,
-      },
+        updatedAt: new Date()
+      }
     });
 
-    // Send emails after transaction commits (fire-and-forget)
-    if (status === 'APPROVED') {
-      const dateStr = (data.deliveryDate as Date).toLocaleDateString('en-IN');
-      void sendBookingApprovalEmail(booking.user.email, booking.user.name, booking.id, dateStr);
-    } else if (status === 'DELIVERED') {
-      void sendDeliveryConfirmationEmail(booking.user.email, booking.user.name, booking.id);
-    } else if (status === 'CANCELLED') {
-      void sendBookingCancellationEmail(booking.user.email, booking.user.name, booking.id, isAdmin ? 'Admin' : 'User');
+    // Create booking event for status change
+    if (status && status !== currentBooking.status) {
+      await prisma.bookingEvent.create({
+        data: {
+          bookingId: bookingId,
+          status: status,
+          title: `Status updated to ${status.toLowerCase()}`,
+          description: `Booking status changed from ${currentBooking.status} to ${status}`,
+          createdAt: new Date()
+        }
+      });
+
+      // Handle cancellation with reason
+      if (status === 'CANCELLED' && body.cancellationReason) {
+        // Send cancellation email with reason
+        console.log('Cancellation reason:', body.cancellationReason);
+        // This will be handled by the email service
+      }
     }
 
-    return result;
-  });
-
-  return successResponse(updated, 'Booking updated successfully');
-}
-
-export const PUT = withMiddleware(updateBookingHandler, {
-  requireAuth: true,
-  // Only admins should generally update; users can cancel own PENDING bookings but middleware cannot express this fine rule.
-  // We still require auth and perform authorization inside handler.
-  validateContentType: true,
-});
-
-async function deleteBookingHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const session = context?.session as { user: { id: string; role?: 'ADMIN' | 'USER' } } | undefined;
-  if (!session?.user?.id) {
-    throw new NotFoundError('User session not found');
-  }
-  if (session.user.role !== 'ADMIN') {
-    throw new ConflictError('Only administrators can delete bookings');
-  }
-
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
-  if (!id) {
-    throw new NotFoundError('Booking ID is required');
-  }
-
-  const booking = await prisma.booking.findUnique({ where: { id } });
-  if (!booking) {
-    throw new NotFoundError('Booking not found');
-  }
-
-  await prisma.$transaction(async (tx) => {
-    // If booking not delivered, return quota to user
-    if (booking.status !== 'DELIVERED') {
-      await tx.user.update({ where: { id: booking.userId }, data: { remainingQuota: { increment: 1 } } });
+    // Update payment amount if quantity changed
+    if (quantity && quantity !== currentBooking.quantity) {
+      await prisma.payment.updateMany({
+        where: { bookingId: bookingId },
+        data: { amount: quantity * 1000 } // Assuming ₹1000 per cylinder
+      });
     }
-    await tx.booking.delete({ where: { id: booking.id } });
-  });
 
-  return successResponse(null, 'Booking deleted successfully');
+    return NextResponse.json({
+      success: true,
+      message: 'Booking updated successfully',
+      data: updatedBooking
+    });
+  } catch (error) {
+    console.error('Failed to update booking:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to update booking' },
+      { status: 500 }
+    );
+  }
 }
-
-export const DELETE = withMiddleware(deleteBookingHandler, {
-  requireAuth: true,
-  validateContentType: false,
-});
 
 
