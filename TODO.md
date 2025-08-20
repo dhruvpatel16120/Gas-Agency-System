@@ -52,7 +52,7 @@
 - [ ] **User Management** - Admin user management
 - [ ] **Booking Management** - Admin booking approval
 - [ ] **Analytics** - Dashboard statistics
-- [ ] **System Settings** - Admin configuration
+
 
 ### **Phase 6: API Development**
 - [ ] **User APIs** - User CRUD operations

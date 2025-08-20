@@ -9,7 +9,6 @@ import {
   Users, 
   Calendar, 
   Package, 
-  Settings, 
   TrendingUp, 
   TrendingDown, 
   Eye,
@@ -378,17 +377,7 @@ export default function AdminDashboard() {
                       </div>
                     </Link>
 
-                    <Link href="/admin/settings" className="group">
-                      <div className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors duration-200 text-left group-hover:border-gray-300">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors duration-200">
-                            <Settings className="w-5 h-5 text-gray-600" />
-                          </div>
-                  <h3 className="font-semibold text-gray-900">System Settings</h3>
-                        </div>
-                        <p className="text-sm text-gray-600">Configure system parameters and preferences</p>
-                      </div>
-                    </Link>
+
 
                     <Link href="/admin/bookings/analytics" className="group">
                       <div className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors duration-200 text-left group-hover:border-cyan-300">

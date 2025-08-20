@@ -4,22 +4,22 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
+import { formatCurrency } from '@/lib/utils';
 import { 
   ArrowLeft, 
   Download, 
   TrendingUp, 
-  TrendingDown, 
-  Calendar,
-  Package,
+  Users, 
+  Package, 
   DollarSign,
-  Users,
+  Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
-  BarChart3,
-  PieChart,
-  Activity
+  Truck,
+  RefreshCw
 } from 'lucide-react';
 
 type AnalyticsData = {
@@ -82,12 +82,22 @@ export default function BookingAnalyticsPage() {
       }
 
       const res = await fetch(`/api/admin/bookings/analytics?${params.toString()}`, { cache: 'no-store' });
+      
+      // Check if response is JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned non-JSON response. Please check if the analytics API is working.');
+      }
+
       const result = await res.json();
       if (res.ok && result.success) {
         setAnalytics(result.data);
+      } else {
+        throw new Error(result.message || 'Failed to load analytics data');
       }
     } catch (error) {
       console.error('Failed to load analytics:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to load analytics data');
     } finally {
       setLoading(false);
     }
@@ -123,13 +133,6 @@ export default function BookingAnalyticsPage() {
     } finally {
       setExportLoading(false);
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
   };
 
   const formatNumber = (num: number) => {
@@ -224,7 +227,21 @@ export default function BookingAnalyticsPage() {
                 <p className="text-gray-600">Loading analytics...</p>
               </div>
             </div>
-          ) : analytics ? (
+          ) : !analytics ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load Analytics</h2>
+                <p className="text-gray-600 mb-4">Unable to load analytics data. Please try again later.</p>
+                <button
+                  onClick={loadAnalytics}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          ) : (
             <>
               {/* Overview Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -290,7 +307,7 @@ export default function BookingAnalyticsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="w-5 h-5" />
+                      <Truck className="w-5 h-5" />
                       Booking Status Distribution
                     </CardTitle>
                   </CardHeader>
@@ -321,7 +338,7 @@ export default function BookingAnalyticsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <PieChart className="w-5 h-5" />
+                      <RefreshCw className="w-5 h-5" />
                       Payment Methods
                     </CardTitle>
                   </CardHeader>
@@ -343,7 +360,7 @@ export default function BookingAnalyticsPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Activity className="w-5 h-5" />
+                      <Truck className="w-5 h-5" />
                       Delivery Performance
                     </CardTitle>
                   </CardHeader>
@@ -438,7 +455,7 @@ export default function BookingAnalyticsPage() {
                 <CardContent>
                   <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
                     <div className="text-center text-gray-500">
-                      <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                      <Truck className="w-12 h-12 mx-auto mb-2 text-gray-300" />
                       <p>Chart visualization will be implemented with Chart.js or similar library</p>
                       <p className="text-sm">Data available: {analytics.trends.daily.length} daily data points</p>
                     </div>
@@ -446,18 +463,6 @@ export default function BookingAnalyticsPage() {
                 </CardContent>
               </Card>
             </>
-          ) : (
-            <div className="text-center py-12">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Failed to Load Analytics</h2>
-              <p className="text-gray-600 mb-4">Unable to load analytics data. Please try again later.</p>
-              <button
-                onClick={loadAnalytics}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Retry
-              </button>
-            </div>
           )}
         </div>
       </main>

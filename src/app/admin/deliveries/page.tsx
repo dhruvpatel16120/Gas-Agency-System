@@ -17,8 +17,7 @@ import {
   TrendingUp,
   BarChart3,
   Plus,
-  Eye,
-  Settings
+  Eye
 } from 'lucide-react';
 
 type DeliveryStats = {

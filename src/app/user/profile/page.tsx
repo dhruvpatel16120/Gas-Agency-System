@@ -20,6 +20,7 @@ export default function UserProfilePage() {
     email: '',
     phone: '',
     address: '',
+    remainingQuota: 0, // Added for quota display
   });
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [bookings, setBookings] = useState<Array<{
@@ -30,7 +31,30 @@ export default function UserProfilePage() {
     createdAt: string;
     expectedDate?: string | null;
     deliveryDate?: string | null;
+    paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
   }>>([]);
+
+  // Helper function to determine which action buttons to show for recent bookings
+  const getProfileBookingActions = (booking: any) => {
+    const actions: string[] = [];
+    
+    // Always show Track button
+    actions.push('track');
+    
+    // Show Pay button only for UPI payments that are not cancelled and payment is pending
+    if (booking.paymentMethod === 'UPI' && 
+        booking.status !== 'CANCELLED' && 
+        booking.paymentStatus === 'PENDING') {
+      actions.push('pay');
+    }
+    
+    // Show Cancel button for PENDING or APPROVED status
+    if (['PENDING', 'APPROVED'].includes(booking.status)) {
+      actions.push('cancel');
+    }
+    
+    return actions;
+  };
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -55,6 +79,7 @@ export default function UserProfilePage() {
           email: userData.email || '',
           phone: userData.phone || '',
           address: userData.address || '',
+          remainingQuota: userData.remainingQuota || 0, // Load remaining quota
         });
         setMemberSince(userData.createdAt || null);
       }
@@ -173,7 +198,39 @@ export default function UserProfilePage() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+        <div className="px-4 py-6 sm:px-0 space-y-6">
+          {/* Quota Status */}
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Gas Cylinder Quota</h2>
+                  <p className="text-gray-600">
+                    You have <span className="font-semibold text-blue-600 text-lg">{formData.remainingQuota || 0}</span> cylinder(s) remaining this year
+                  </p>
+                  {formData.remainingQuota !== undefined && formData.remainingQuota <= 2 && (
+                    <p className="text-sm text-yellow-700 mt-2">
+                      ⚠️ You're running low on cylinders. Only {formData.remainingQuota} remaining this year.
+                    </p>
+                  )}
+                  {formData.remainingQuota !== undefined && formData.remainingQuota > 0 && (
+                    <button
+                      onClick={() => router.push('/user/book')}
+                      className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Book New Cylinder
+                    </button>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-4xl font-bold text-blue-600">{formData.remainingQuota || 0}</div>
+                  <div className="text-sm text-gray-500">Remaining</div>
+                  <div className="text-xs text-gray-400 mt-1">of 12 total</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Back Button */}
           <div className="mb-6">
             <button
@@ -188,6 +245,7 @@ export default function UserProfilePage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Profile Card */}
             <div className="lg:col-span-2">
+              {/* Profile Form */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center">
@@ -268,12 +326,47 @@ export default function UserProfilePage() {
                             >
                               {b.status}
                             </span>
-                            <button
-                              onClick={() => router.push(`/user/track/${b.id}`)}
-                              className="text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              Track
-                            </button>
+                            {getProfileBookingActions(b).map((action) => {
+                              switch (action) {
+                                case 'track':
+                                  return (
+                                    <button
+                                      key="track"
+                                      onClick={() => router.push(`/user/track/${b.id}`)}
+                                      className="text-xs text-blue-600 hover:text-blue-700"
+                                    >
+                                      Track
+                                    </button>
+                                  );
+                                case 'pay':
+                                  return (
+                                    <button
+                                      key="pay"
+                                      onClick={() => router.push(`/user/pay/upi/${b.id}`)}
+                                      className="text-xs text-green-600 hover:text-green-700 ml-2"
+                                    >
+                                      Pay
+                                    </button>
+                                  );
+                                case 'cancel':
+                                  return (
+                                    <button
+                                      key="cancel"
+                                      onClick={() => {
+                                        if (confirm('Are you sure you want to cancel this booking?')) {
+                                          // Handle cancellation - could navigate to bookings page or show modal
+                                          router.push('/user/bookings');
+                                        }
+                                      }}
+                                      className="text-xs text-red-600 hover:text-red-700 ml-2"
+                                    >
+                                      Cancel
+                                    </button>
+                                  );
+                                default:
+                                  return null;
+                              }
+                            })}
                           </div>
                         </div>
                       ))}

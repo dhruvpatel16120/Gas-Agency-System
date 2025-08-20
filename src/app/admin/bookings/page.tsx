@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
+import { formatCurrency } from '@/lib/utils';
 import { 
   Calendar, 
   Package, 
@@ -41,7 +43,7 @@ type Booking = {
   deliveryDate?: string | null;
   deliveredAt?: string | null;
   notes?: string | null;
-  paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
+  paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
   paymentAmount?: number;
   deliveryPartnerId?: string | null;
   deliveryPartnerName?: string | null;
@@ -59,6 +61,7 @@ type BookingStats = {
   cancelled: number;
   totalRevenue: number;
   pendingRevenue: number;
+  pendingUpiPayments: number;
 };
 
 export default function AdminBookingsPage() {
@@ -73,10 +76,11 @@ export default function AdminBookingsPage() {
     delivered: 0,
     cancelled: 0,
     totalRevenue: 0,
-    pendingRevenue: 0
+    pendingRevenue: 0,
+    pendingUpiPayments: 0
   });
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(5);
   const [total, setTotal] = useState(0);
   const [statusFilter, setStatusFilter] = useState('');
   const [methodFilter, setMethodFilter] = useState('');
@@ -112,7 +116,7 @@ export default function AdminBookingsPage() {
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
       
-      const res = await fetch(`/api/bookings?${params.toString()}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/bookings?${params.toString()}`, { cache: 'no-store' });
       
       // Check if response is ok before trying to parse JSON
       if (!res.ok) {
@@ -185,24 +189,108 @@ export default function AdminBookingsPage() {
   const handleBulkAction = async (action: string) => {
     if (selectedBookings.size === 0) return;
     
+    let reason: string | undefined;
+    if (action === 'cancel') {
+      reason = prompt('Please provide a reason for cancellation (required):') || '';
+      if (!reason.trim()) {
+        toast.error('Cancellation reason is required');
+        return;
+      }
+    }
+
     const confirmed = confirm(`Are you sure you want to ${action} ${selectedBookings.size} booking(s)?`);
     if (!confirmed) return;
 
     setLoading(true);
     try {
+      const selected = bookings.filter(b => selectedBookings.has(b.id));
+
+      // Client-side pre-checks to prevent guaranteed failures
+      if (selected.some(b => b.status === 'DELIVERED')) {
+        toast.error('Some selected bookings are already delivered. Service is fulfilled; bulk actions are not allowed for delivered bookings.');
+        return;
+      }
+      if (action === 'approve') {
+        const pendingCount = selected.filter(b => b.status === 'PENDING').length;
+        if (pendingCount === 0) {
+          toast.error('Only PENDING bookings can be approved. No eligible bookings in selection.');
+          return;
+        }
+
+        // Check UPI payment status - prevent approval if UPI payment is not successful
+        const upiBookingsWithoutSuccessPayment = selected.filter(b => 
+          b.status === 'PENDING' && 
+          b.paymentMethod === 'UPI' && 
+          b.paymentStatus !== 'SUCCESS'
+        );
+
+        if (upiBookingsWithoutSuccessPayment.length > 0) {
+          const bookingIds = upiBookingsWithoutSuccessPayment.map(b => b.id);
+          toast.error(`Cannot approve UPI bookings with pending/failed payments. Booking IDs: ${bookingIds.join(', ')}. Please ensure UPI payments are confirmed before approval.`);
+          return;
+        }
+      }
+
+      if (action === 'assign-delivery') {
+        const eligibleAssignCount = selected.filter(b => b.status === 'PENDING' || b.status === 'APPROVED').length;
+        if (eligibleAssignCount === 0) {
+          toast.error('Only PENDING or APPROVED bookings can be assigned. No eligible bookings in selection.');
+          return;
+        }
+      }
+
+      if (action === 'cancel') {
+        const eligibleCancelCount = selected.filter(b => b.status !== 'DELIVERED' && b.status !== 'CANCELLED').length;
+        if (eligibleCancelCount === 0) {
+          toast.error('No eligible bookings to cancel in selection.');
+          return;
+        }
+      }
+
+      let partnerId: string | undefined;
+      if (action === 'assign-delivery') {
+        partnerId = prompt('Enter Delivery Partner ID (required):') || '';
+        if (!partnerId.trim()) {
+          toast.error('Delivery Partner ID is required');
+          return;
+        }
+      }
+
       const res = await fetch('/api/admin/bookings/bulk-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action,
-          bookingIds: Array.from(selectedBookings)
+          bookingIds: Array.from(selectedBookings),
+          additionalData: {
+            ...(action === 'cancel' ? { reason } : {}),
+            ...(action === 'assign-delivery' ? { partnerId } : {}),
+          },
         })
       });
-      
-      if (res.ok) {
+
+      const result = await res.json();
+      if (res.ok && result.success) {
+        // Show contextual alerts
+        if (action === 'approve') {
+          toast.success(`Approved ${result.data?.updatedCount || selectedBookings.size} booking(s). Approval emails have been sent to users.`);
+        } else if (action === 'assign-delivery') {
+          toast.success(`Assigned delivery partners to ${result.data?.updatedCount || selectedBookings.size} booking(s).`);
+        } else if (action === 'cancel') {
+          toast.success(`Cancelled ${result.data?.updatedCount || selectedBookings.size} booking(s). Cancellation emails have been sent to users.`);
+        } else {
+          toast.success('Action completed successfully');
+        }
+
         setSelectedBookings(new Set());
         await loadBookings();
         await loadStats();
+      } else {
+        if (result?.message?.includes('already delivered')) {
+          toast.error('Some selected bookings are already delivered. Service is fulfilled; bulk actions are not allowed for delivered bookings.');
+        } else {
+          toast.error(result.message || 'Failed to perform action');
+        }
       }
     } finally {
       setLoading(false);
@@ -225,8 +313,15 @@ export default function AdminBookingsPage() {
       case 'SUCCESS': return 'bg-green-100 text-green-800';
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
       case 'FAILED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED': return 'bg-gray-200 text-gray-700';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const canBeApproved = (booking: Booking) => {
+    if (booking.status !== 'PENDING') return false;
+    if (booking.paymentMethod === 'UPI' && booking.paymentStatus !== 'SUCCESS') return false;
+    return true;
   };
 
   if (status === 'loading') return null;
@@ -260,11 +355,18 @@ export default function AdminBookingsPage() {
                 <Download className="w-4 h-4" />
                 Analytics
               </button>
+              <button
+                onClick={() => router.push('/admin/bookings/review-payments')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <DollarSign className="w-4 h-4" />
+                Review Payments
+              </button>
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
@@ -316,6 +418,20 @@ export default function AdminBookingsPage() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Revenue</p>
                     <p className="text-2xl font-bold text-gray-900">₹{stats.totalRevenue}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Clock className="w-6 h-6 text-orange-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Pending UPI Payments</p>
+                    <p className="text-2xl font-bold text-gray-900">{stats.pendingUpiPayments}</p>
                   </div>
                 </div>
               </CardContent>
@@ -494,6 +610,37 @@ export default function AdminBookingsPage() {
                       Approve All
                     </button>
                     <button
+                      onClick={async () => {
+                        // Bulk payment reminder: only for bookings with pending payment
+                        const selected = bookings.filter(b => selectedBookings.has(b.id));
+                        const pendingIds = selected.filter(b => b.paymentStatus === 'PENDING').map(b => b.id);
+                        if (pendingIds.length === 0) {
+                          toast.error('No bookings with pending payment in selection.');
+                          return;
+                        }
+                        const confirmed = confirm(`Send payment reminder to ${pendingIds.length} booking(s)?`);
+                        if (!confirmed) return;
+                        try {
+                          for (const id of pendingIds) {
+                            // eslint-disable-next-line no-await-in-loop
+                            const res = await fetch(`/api/admin/bookings/${id}/send-email`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ type: 'payment' })
+                            });
+                            // ignore non-200s per booking
+                            void res;
+                          }
+                          toast.success('Payment reminders sent (best effort).');
+                        } catch (e) {
+                          toast.error('Failed to send some payment reminders');
+                        }
+                      }}
+                      className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                    >
+                      Send Payment Reminder
+                    </button>
+                    <button
                       onClick={() => handleBulkAction('assign-delivery')}
                       className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
                     >
@@ -580,7 +727,14 @@ export default function AdminBookingsPage() {
                               }
                               setSelectedBookings(newSelected);
                             }}
-                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            disabled={!canBeApproved(booking)}
+                            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={!canBeApproved(booking) ? 
+                              (booking.paymentMethod === 'UPI' && booking.paymentStatus !== 'SUCCESS' ? 
+                                'UPI payment pending - cannot approve until payment is confirmed' : 
+                                'Booking cannot be approved in current status') : 
+                              'Select for approval'
+                            }
                           />
                         </td>
                         <td className="px-3 py-3">
@@ -620,7 +774,15 @@ export default function AdminBookingsPage() {
                             </div>
                             {booking.paymentAmount && (
                               <div className="text-sm font-medium text-gray-900">
-                                ₹{booking.paymentAmount}
+                                {formatCurrency(booking.paymentAmount)}
+                              </div>
+                            )}
+                            {/* Warning for UPI bookings with pending payment */}
+                            {booking.paymentMethod === 'UPI' && 
+                             booking.status === 'PENDING' && 
+                             booking.paymentStatus !== 'SUCCESS' && (
+                              <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded mt-1">
+                                ⚠️ Payment pending - cannot approve
                               </div>
                             )}
                           </div>

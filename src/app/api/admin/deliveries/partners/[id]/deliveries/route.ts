@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withMiddleware, successResponse } from '@/lib/api-middleware';
 
-async function getPartnerDeliveriesHandler(request: NextRequest, { params }: { params: { id: string } }) {
+async function getPartnerDeliveriesHandler(request: NextRequest, context?: Record<string, unknown>): Promise<NextResponse> {
   try {
-    const partnerId = params.id;
+    const partnerId = (context as { params?: { id?: string } })?.params?.id || '';
 
     // Get delivery history for this partner
     const deliveries = await (prisma as any).deliveryAssignment.findMany({

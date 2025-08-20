@@ -71,7 +71,7 @@ async function getDeliveryAnalyticsHandler(request: NextRequest) {
     // Get partner details and calculate performance metrics
     const partnerStats = partnerPerformance && partnerPerformance.length > 0 ? await Promise.all(
       partnerPerformance.map(async (group: any) => {
-        const partner = await (prisma as any).deliveryPartner.findUnique({
+        const partner = await prisma.deliveryPartner.findUnique({
           where: { id: group.partnerId },
           select: { name: true }
         });
@@ -108,7 +108,7 @@ async function getDeliveryAnalyticsHandler(request: NextRequest) {
     ) : [];
 
     // Get area statistics
-    const areaStats = await (prisma as any).deliveryPartner.groupBy({
+    const areaStats = await prisma.deliveryPartner.groupBy({
       by: ['serviceArea'],
       where: {
         serviceArea: { not: null },
@@ -172,8 +172,8 @@ async function getDeliveryAnalyticsHandler(request: NextRequest) {
     }
 
     // Get total and active partners
-    const totalPartners = await (prisma as any).deliveryPartner.count();
-    const activePartners = await (prisma as any).deliveryPartner.count({
+    const totalPartners = await prisma.deliveryPartner.count();
+    const activePartners = await prisma.deliveryPartner.count({
       where: { isActive: true }
     });
 

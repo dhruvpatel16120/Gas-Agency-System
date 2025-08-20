@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
+
 import { 
   ArrowLeft, 
   Edit, 
@@ -22,6 +24,7 @@ import {
   FileText,
   Send,
   Download,
+  RefreshCw,
   X
 } from 'lucide-react';
 
@@ -55,7 +58,7 @@ type Payment = {
   id: string;
   amount: number;
   method: 'COD' | 'UPI';
-  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
   upiTxnId?: string;
   createdAt: string;
 };
@@ -93,6 +96,8 @@ export default function BookingDetailsPage() {
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [showPaymentReminder, setShowPaymentReminder] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -105,6 +110,26 @@ export default function BookingDetailsPage() {
       loadBookingDetails();
     }
   }, [session, bookingId]);
+
+  const refreshPaymentStatus = async () => {
+    setActionLoading('refresh-pay');
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/payments`, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        const list = json.data || [];
+        setPayments(list);
+        const latest = list[0];
+        if (latest) {
+          setBooking(prev => prev ? { ...prev, paymentStatus: latest.status, paymentAmount: latest.amount } : prev);
+        }
+      }
+    } catch (e) {
+      // no-op
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const loadBookingDetails = async () => {
     setLoading(true);
@@ -145,22 +170,95 @@ export default function BookingDetailsPage() {
   const updateStatus = async (newStatus: string) => {
     setActionLoading('status');
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ newStatus })
       });
 
       if (res.ok) {
+        const result = await res.json();
+        toast.success(result.message || 'Status updated successfully');
         await loadBookingDetails();
       } else {
-        alert('Failed to update status');
+        const error = await res.json();
+        toast.error(error.message || 'Failed to update status');
       }
     } catch (error) {
       console.error('Failed to update status:', error);
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: 'APPROVED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED') => {
+    // Check if UPI payment is pending
+    if (newStatus === 'APPROVED' && 
+        booking?.paymentMethod === 'UPI' && 
+        payments.length > 0 && 
+        payments[0].status !== 'SUCCESS') {
+      toast.error('Cannot approve booking: UPI payment is not completed');
+      return;
+    }
+
+    // Restriction: must have an assigned delivery partner before marking delivered or out for delivery
+    if ((newStatus === 'DELIVERED' || newStatus === 'OUT_FOR_DELIVERY') && !deliveryAssignment) {
+      toast.error('Assign a delivery partner before updating this status.');
+      return;
+    }
+
+    // Additional restriction: OUT_FOR_DELIVERY should be managed through delivery status updates
+    if (newStatus === 'OUT_FOR_DELIVERY' && deliveryAssignment) {
+      toast.error('Use the delivery status controls to mark as Out for Delivery. This ensures proper tracking.');
+      return;
+    }
+
+    // Confirmation prompts
+    let message = '';
+    if (newStatus === 'APPROVED') {
+      message = 'Approve this booking? An approval email will be sent to the user.';
+    } else if (newStatus === 'DELIVERED') {
+      message = 'Mark this booking as Delivered? This should typically be done through delivery status updates.';
+    } else if (newStatus === 'CANCELLED') {
+      message = 'Cancel this booking? This action cannot be undone.';
+    }
+    const confirmed = confirm(message);
+    if (!confirmed) return;
+
+    await updateStatus(newStatus);
+  };
+
+  const sendPaymentReminder = async () => {
+    if (!reminderMessage.trim()) {
+      toast.error('Please enter a reminder message');
+      return;
+    }
+    
+    setSendingReminder(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'PAYMENT_REMINDER',
+          message: reminderMessage.trim()
+        })
+      });
+      
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success('Payment reminder sent successfully');
+        setShowPaymentReminder(false);
+        setReminderMessage('');
+      } else {
+        toast.error(json.message || 'Failed to send reminder');
+      }
+    } catch (error) {
+      console.error('Failed to send reminder:', error);
+      toast.error('Failed to send reminder');
+    } finally {
+      setSendingReminder(false);
     }
   };
 
@@ -174,13 +272,39 @@ export default function BookingDetailsPage() {
       });
 
       if (res.ok) {
-        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} email sent successfully!`);
+        toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} email sent successfully`);
       } else {
-        alert('Failed to send email');
+        toast.error('Failed to send email');
       }
     } catch (error) {
       console.error('Failed to send email:', error);
-      alert('Failed to send email');
+      toast.error('Failed to send email');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const downloadInvoice = async () => {
+    setActionLoading('invoice');
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/invoice`);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoice-${bookingId.slice(-8).toUpperCase()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Invoice downloaded successfully');
+      } else {
+        toast.error('Failed to download invoice');
+      }
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      toast.error('Failed to download invoice');
     } finally {
       setActionLoading(null);
     }
@@ -188,42 +312,59 @@ export default function BookingDetailsPage() {
 
   const cancelBooking = async () => {
     if (!cancellationReason.trim()) {
-      alert('Please provide a cancellation reason');
+      toast.error('Please provide a cancellation reason');
       return;
     }
 
     setActionLoading('cancel');
     try {
-      const res = await fetch(`/api/bookings/${bookingId}`, {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          status: 'CANCELLED',
+          newStatus: 'CANCELLED',
           cancellationReason: cancellationReason.trim()
         })
       });
 
       if (res.ok) {
-        // Send cancellation email with reason
-        await fetch(`/api/admin/bookings/${bookingId}/send-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'cancellation',
-            additionalData: { reason: cancellationReason.trim() }
-          })
-        });
-
-        alert('Booking cancelled successfully');
+        const result = await res.json();
+        toast.success(result.message || 'Booking cancelled successfully');
         setShowCancellationModal(false);
         setCancellationReason('');
         await loadBookingDetails();
       } else {
-        alert('Failed to cancel booking');
+        const error = await res.json();
+        toast.error(error.message || 'Failed to cancel booking');
       }
     } catch (error) {
       console.error('Failed to cancel booking:', error);
-      alert('Failed to cancel booking');
+      toast.error('Failed to cancel booking');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const updateDeliveryStatus = async (newStatus: 'ASSIGNED' | 'PICKED_UP' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED') => {
+    setActionLoading('delivery-status');
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}/delivery/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newStatus })
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        toast.success(result.message || 'Delivery status updated successfully');
+        await loadBookingDetails();
+      } else {
+        const error = await res.json();
+        toast.error(error.message || 'Failed to update delivery status');
+      }
+    } catch (error) {
+      console.error('Failed to update delivery status:', error);
+      toast.error('Failed to update delivery status');
     } finally {
       setActionLoading(null);
     }
@@ -245,6 +386,7 @@ export default function BookingDetailsPage() {
       case 'SUCCESS': return 'bg-green-100 text-green-800';
       case 'PENDING': return 'bg-yellow-100 text-yellow-800';
       case 'FAILED': return 'bg-red-100 text-red-800';
+      case 'CANCELLED': return 'bg-gray-200 text-gray-700';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -316,24 +458,83 @@ export default function BookingDetailsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push(`/admin/bookings/${bookingId}/edit`)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => router.push(`/admin/bookings/${bookingId}/assign-delivery`)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                <Truck className="w-4 h-4" />
-                Assign Delivery
-              </button>
+              {/* Status-based Quick Actions */}
+              {booking.status === 'PENDING' && (
+                <button
+                  onClick={() => handleStatusChange('APPROVED')}
+                  disabled={actionLoading === 'status' || 
+                           (booking.paymentMethod === 'UPI' && 
+                            payments.length > 0 && 
+                            payments[0].status !== 'SUCCESS')}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  title={booking.paymentMethod === 'UPI' && 
+                         payments.length > 0 && 
+                         payments[0].status !== 'SUCCESS' 
+                         ? 'Cannot approve: UPI payment not completed' 
+                         : undefined}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {actionLoading === 'status' ? 'Approving...' : 'Approve'}
+                </button>
+              )}
+              
+              {booking.status === 'APPROVED' && !deliveryAssignment && (
+                <button
+                  onClick={() => router.push(`/admin/bookings/${bookingId}/assign-delivery`)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                >
+                  <Truck className="w-4 h-4" />
+                  Assign Delivery
+                </button>
+              )}
+              
+              {booking.status === 'APPROVED' && deliveryAssignment && (
+                <button
+                  onClick={() => router.push(`/admin/deliveries/active`)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                  title="Manage delivery status through Active Deliveries"
+                >
+                  <Truck className="w-4 h-4" />
+                  Manage Delivery
+                </button>
+              )}
+              
+              {booking.status === 'OUT_FOR_DELIVERY' && (
+                <button
+                  onClick={() => handleStatusChange('DELIVERED')}
+                  disabled={actionLoading === 'status'}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {actionLoading === 'status' ? 'Updating...' : 'Mark Delivered'}
+                </button>
+              )}
+              
+              {booking.status !== 'CANCELLED' && (
+                <>
+                  <button
+                    onClick={() => router.push(`/admin/bookings/${bookingId}/edit`)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  
+                  {booking.status !== 'DELIVERED' && (
+                    <button
+                      onClick={() => setShowCancellationModal(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
-          {/* Status and Actions */}
+          {/* Status Display */}
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -345,42 +546,13 @@ export default function BookingDetailsPage() {
                     Last updated: {new Date(booking.updatedAt).toLocaleString()}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {booking.status === 'PENDING' && (
-                    <button
-                      onClick={() => updateStatus('APPROVED')}
-                      disabled={actionLoading === 'status'}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {actionLoading === 'status' ? 'Updating...' : 'Approve'}
-                    </button>
-                  )}
-                  {booking.status === 'APPROVED' && (
-                    <button
-                      onClick={() => updateStatus('OUT_FOR_DELIVERY')}
-                      disabled={actionLoading === 'status'}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {actionLoading === 'status' ? 'Updating...' : 'Out for Delivery'}
-                    </button>
-                  )}
-                  {(booking.status === 'OUT_FOR_DELIVERY' || booking.status === 'APPROVED') && (
-                    <button
-                      onClick={() => updateStatus('DELIVERED')}
-                      disabled={actionLoading === 'status'}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {actionLoading === 'status' ? 'Updating...' : 'Mark Delivered'}
-                    </button>
-                  )}
-                  {booking.status !== 'DELIVERED' && booking.status !== 'CANCELLED' && (
-                    <button
-                      onClick={() => updateStatus('CANCELLED')}
-                      disabled={actionLoading === 'status'}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                    >
-                      {actionLoading === 'status' ? 'Updating...' : 'Cancel'}
-                    </button>
+                <div className="text-sm text-gray-500">
+                  {deliveryAssignment ? (
+                    <span className="text-purple-600">
+                      Delivery Partner: {deliveryAssignment.partnerName}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">No delivery partner assigned</span>
                   )}
                 </div>
               </div>
@@ -521,6 +693,41 @@ export default function BookingDetailsPage() {
                   ) : (
                     <p className="text-gray-500 text-center py-4">No payment records found</p>
                   )}
+                  
+                  {/* UPI Payment Restriction Warning */}
+                  {booking.paymentMethod === 'UPI' && 
+                   payments.length > 0 && 
+                   payments[0].status !== 'SUCCESS' && (
+                    <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold text-orange-800 mb-1">
+                            Payment Not Completed
+                          </h4>
+                          <p className="text-sm text-orange-700 mb-3">
+                            This UPI payment has not been completed successfully. The booking cannot be approved until payment is confirmed.
+                          </p>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => router.push(`/admin/bookings/${bookingId}/review-payment`)}
+                              className="inline-flex items-center gap-2 px-3 py-2 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700"
+                            >
+                              <Send className="w-4 h-4" />
+                              Review Payment
+                            </button>
+                            <button
+                              onClick={() => setShowPaymentReminder(true)}
+                              className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-orange-300 text-orange-700 text-sm rounded-md hover:bg-orange-50"
+                            >
+                              <Send className="w-4 h-4" />
+                              Send Reminder
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -582,79 +789,262 @@ export default function BookingDetailsPage() {
               {/* Quick Actions */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Quick Actions</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Quick Actions
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <button
-                    onClick={() => sendEmail('confirmation')}
-                    disabled={actionLoading === 'email'}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Send className="w-4 h-4 text-blue-600" />
-                      <span>Send Confirmation</span>
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => sendEmail('delivery')}
-                    disabled={actionLoading === 'email'}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-purple-600" />
-                      <span>Send Delivery Info</span>
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => sendEmail('reminder')}
-                    disabled={actionLoading === 'email'}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-yellow-600" />
-                      <span>Send Reminder</span>
-                    </div>
-                  </button>
+                  {/* Status-based Actions */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Status Actions</h4>
+                    
+                    {/* PENDING Status Actions */}
+                    {booking.status === 'PENDING' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange('APPROVED')}
+                          disabled={actionLoading === 'status' || 
+                                   (booking.paymentMethod === 'UPI' && 
+                                    payments.length > 0 && 
+                                    payments[0].status !== 'SUCCESS')}
+                          className="w-full text-left p-3 border border-green-200 rounded-lg hover:bg-green-50 disabled:opacity-50 text-green-700"
+                          title={booking.paymentMethod === 'UPI' && 
+                                 payments.length > 0 && 
+                                 payments[0].status !== 'SUCCESS' 
+                                 ? 'Cannot approve: UPI payment not completed' 
+                                 : undefined}
+                        >
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{actionLoading === 'status' ? 'Approving...' : 'Approve Booking'}</span>
+                          </div>
+                        </button>
+                        
+                        <button
+                          onClick={() => sendEmail('confirmation')}
+                          disabled={actionLoading === 'email'}
+                          className="w-full text-left p-3 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 text-blue-700"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Send className="w-4 h-4" />
+                            <span>Send Confirmation Email</span>
+                          </div>
+                        </button>
+                      </>
+                    )}
 
-                  {/* Payment Reminder Button - Only show for UPI payments with pending status */}
-                  {booking?.paymentMethod === 'UPI' && booking?.paymentStatus === 'PENDING' && (
+                    {/* APPROVED Status Actions */}
+                    {booking.status === 'APPROVED' && (
+                      <>
+                        {!deliveryAssignment ? (
+                          <button
+                            onClick={() => router.push(`/admin/bookings/${bookingId}/assign-delivery`)}
+                            className="w-full text-left p-3 border border-purple-200 rounded-lg hover:bg-purple-50 text-purple-700"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4" />
+                              <span>Assign Delivery Partner</span>
+                            </div>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => router.push(`/admin/deliveries/active`)}
+                            className="w-full text-left p-3 border border-purple-200 rounded-lg hover:bg-purple-50 text-purple-700"
+                            title="Manage delivery status through Active Deliveries"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4" />
+                              <span>Manage Delivery</span>
+                            </div>
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => sendEmail('reminder')}
+                          disabled={actionLoading === 'email'}
+                          className="w-full text-left p-3 border border-yellow-200 rounded-lg hover:bg-yellow-50 disabled:opacity-50 text-yellow-700"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4" />
+                            <span>Send Reminder Email</span>
+                          </div>
+                        </button>
+                      </>
+                    )}
+
+                     {/* OUT_FOR_DELIVERY Status Actions */}
+                     {booking.status === 'OUT_FOR_DELIVERY' && (
+                       <button
+                         onClick={() => router.push(`/admin/deliveries/active`)}
+                         className="w-full text-left p-3 border border-purple-200 rounded-lg hover:bg-purple-50 text-purple-700"
+                         title="Manage delivery status through Active Deliveries"
+                       >
+                         <div className="flex items-center gap-2">
+                           <Truck className="w-4 h-4" />
+                           <span>Manage Delivery</span>
+                         </div>
+                       </button>
+                     )}
+
+                     {/* No Status Actions Available */}
+                     {!(
+                       booking.status === 'PENDING' ||
+                       booking.status === 'APPROVED' ||
+                       booking.status === 'OUT_FOR_DELIVERY'
+                     ) && (
+                       <div className="text-center py-3 text-gray-500 text-sm">
+                         No status actions available
+                       </div>
+                     )}
+                   </div>
+
+                  {/* Payment Actions */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Payment Actions</h4>
+                    
+                    {/* Review UPI Payment */}
+                    {booking.paymentMethod === 'UPI' && (booking.paymentStatus === 'PENDING' || payments[0]?.status === 'PENDING') && (
+                      <button
+                        onClick={() => router.push(`/admin/bookings/${bookingId}/review-payment`)}
+                        className="w-full text-left p-3 border border-green-200 rounded-lg hover:bg-green-50 text-green-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          <span>Review UPI Payment</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Edit COD Payment */}
+                    {booking.paymentMethod === 'COD' && (booking.status === 'PENDING' || booking.status === 'APPROVED' || booking.status === 'DELIVERED') && (
+                      <button
+                        onClick={() => router.push(`/admin/bookings/${bookingId}/edit-payment`)}
+                        className="w-full text-left p-3 border border-green-200 rounded-lg hover:bg-green-50 text-green-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          <span>Edit Payment</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Payment Reminder */}
+                    {booking?.paymentStatus === 'PENDING' && (
+                      <button
+                        onClick={() => sendEmail('payment')}
+                        disabled={actionLoading === 'email'}
+                        className="w-full text-left p-3 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 text-red-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4" />
+                          <span>Send Payment Reminder</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Refresh Payment Status */}
+                    {booking?.paymentStatus === 'PENDING' && (
+                      <button
+                        onClick={refreshPaymentStatus}
+                        disabled={actionLoading === 'refresh-pay'}
+                        className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-gray-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <RefreshCw className="w-4 h-4" />
+                          <span>{actionLoading === 'refresh-pay' ? 'Refreshing…' : 'Refresh Payment Status'}</span>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* No Payment Actions Available */}
+                    {!(
+                      (booking.paymentMethod === 'UPI' && (booking.paymentStatus === 'PENDING' || payments[0]?.status === 'PENDING')) ||
+                      (booking.paymentMethod === 'COD' && (booking.status === 'PENDING' || booking.status === 'APPROVED' || booking.status === 'DELIVERED')) ||
+                      (booking?.paymentStatus === 'PENDING')
+                    ) && (
+                      <div className="text-center py-3 text-gray-500 text-sm">
+                        No payment actions available
+                      </div>
+                    )}
+                  </div>
+
+                                     {/* Communication Actions */}
+                   <div className="space-y-2">
+                     <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Communication</h4>
+                     
+                     {/* Delivery Info Email */}
+                     {deliveryAssignment && (booking.status === 'APPROVED' || booking.status === 'OUT_FOR_DELIVERY') && (
+                       <button
+                         onClick={() => sendEmail('delivery')}
+                         disabled={actionLoading === 'email'}
+                         className="w-full text-left p-3 border border-purple-200 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-purple-700"
+                       >
+                         <div className="flex items-center gap-2">
+                           <Truck className="w-4 h-4" />
+                           <span>Send Delivery Info</span>
+                         </div>
+                       </button>
+                     )}
+
+                     {/* No Communication Actions Available */}
+                     {!(
+                       deliveryAssignment && (booking.status === 'APPROVED' || booking.status === 'OUT_FOR_DELIVERY')
+                     ) && (
+                       <div className="text-center py-3 text-gray-500 text-sm">
+                         No communication actions available
+                       </div>
+                     )}
+                   </div>
+
+                  {/* Utility Actions */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Utilities</h4>
+                    
+                    {/* Download Invoice */}
                     <button
-                      onClick={() => sendEmail('payment')}
-                      disabled={actionLoading === 'email'}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                      onClick={downloadInvoice}
+                      disabled={actionLoading === 'invoice'}
+                      className="w-full text-left p-3 border border-green-200 rounded-lg hover:bg-green-50 disabled:opacity-50 text-green-700"
                     >
                       <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-red-600" />
-                        <span>Send Payment Reminder</span>
+                        <Download className="w-4 h-4" />
+                        <span>{actionLoading === 'invoice' ? 'Downloading...' : 'Download Invoice'}</span>
                       </div>
                     </button>
-                  )}
 
-                  <button
-                    onClick={() => router.push(`/admin/bookings/${bookingId}/invoice`)}
-                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Download className="w-4 h-4 text-green-600" />
-                      <span>Download Invoice</span>
-                    </div>
-                  </button>
+                    {/* Edit Booking */}
+                    {booking.status !== 'CANCELLED' && (
+                      <button
+                        onClick={() => router.push(`/admin/bookings/${bookingId}/edit`)}
+                        className="w-full text-left p-3 border border-blue-200 rounded-lg hover:bg-blue-50 text-blue-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Edit className="w-4 h-4" />
+                          <span>Edit Booking</span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
 
-                  {/* Cancel Booking Button */}
-                  {booking?.status !== 'CANCELLED' && booking?.status !== 'DELIVERED' && (
-                    <button
-                      onClick={() => setShowCancellationModal(true)}
-                      disabled={actionLoading === 'cancel'}
-                      className="w-full text-left p-3 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 text-red-700"
-                    >
-                      <div className="flex items-center gap-2">
-                        <X className="w-4 h-4" />
-                        <span>Cancel Booking</span>
-                      </div>
-                    </button>
-                  )}
+                  {/* Danger Actions */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700 border-b pb-1">Danger Zone</h4>
+                    
+                    {/* Cancel Booking */}
+                    {booking?.status !== 'CANCELLED' && booking?.status !== 'DELIVERED' && (
+                      <button
+                        onClick={() => setShowCancellationModal(true)}
+                        disabled={actionLoading === 'cancel'}
+                        className="w-full text-left p-3 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 text-red-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <X className="w-4 h-4" />
+                          <span>Cancel Booking</span>
+                        </div>
+                      </button>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -732,6 +1122,56 @@ export default function BookingDetailsPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {actionLoading === 'cancel' ? 'Cancelling...' : 'Cancel Booking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Reminder Modal */}
+      {showPaymentReminder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Payment Reminder</h3>
+              <button
+                onClick={() => setShowPaymentReminder(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-3">
+                Send a reminder to <strong>{booking?.userName}</strong> about their pending UPI payment for booking #{booking?.id}.
+              </p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reminder Message <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={reminderMessage}
+                onChange={(e) => setReminderMessage(e.target.value)}
+                rows={4}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Enter your reminder message here..."
+                required
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowPaymentReminder(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendPaymentReminder}
+                disabled={sendingReminder || !reminderMessage.trim()}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingReminder ? 'Sending...' : 'Send Reminder'}
               </button>
             </div>
           </div>

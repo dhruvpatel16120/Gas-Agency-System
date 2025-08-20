@@ -1,97 +1,246 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-middleware';
-import { z } from 'zod';
+import { sendDeliveryStatusEmail } from '@/lib/email';
 
-const listSchema = z.object({
-  page: z.string().optional().transform((v) => (v ? parseInt(v, 10) : 1)),
-  limit: z.string().optional().transform((v) => (v ? Math.min(100, parseInt(v, 10)) : 10)),
-  status: z.string().optional(),
-  partnerId: z.string().optional(),
-});
+// POST - Assign a delivery partner to a booking
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
 
-const createSchema = z.object({
-  bookingId: z.string().min(1),
-  partnerId: z.string().min(1),
-  notes: z.string().max(500).optional(),
-});
+    const body = await request.json();
+    const { bookingId, partnerId } = body;
 
-const updateSchema = z.object({
-  bookingId: z.string().min(1),
-  status: z.enum(['ASSIGNED','PICKED_UP','OUT_FOR_DELIVERY','DELIVERED','FAILED']),
-  notes: z.string().max(500).optional(),
-});
+    if (!bookingId || !partnerId) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Booking ID and partner ID are required' 
+      }, { status: 400 });
+    }
 
-async function listAssignmentsHandler(request: NextRequest) {
-  const url = new URL(request.url);
-  const parsed = listSchema.parse(Object.fromEntries(url.searchParams.entries()));
-  const where: any = {};
-  if (parsed.status) where.status = parsed.status;
-  if (parsed.partnerId) where.partnerId = parsed.partnerId;
-  const total = await (prisma as any).deliveryAssignment.count({ where });
-  const data = await (prisma as any).deliveryAssignment.findMany({
-    where,
-    include: { partner: true },
-    orderBy: { assignedAt: 'desc' },
-    skip: (parsed.page - 1) * parsed.limit,
-    take: parsed.limit,
-  });
-  return successResponse({ data, pagination: { page: parsed.page, limit: parsed.limit, total, totalPages: Math.ceil(total / parsed.limit) } });
-}
-
-async function createAssignmentHandler(request: NextRequest) {
-  const payload = createSchema.parse(await parseRequestBody(request));
-  // Upsert assignment for booking; update booking status to OUT_FOR_DELIVERY
-  const result = await (prisma as any).$transaction(async (tx: any) => {
-    const assignment = await tx.deliveryAssignment.upsert({
-      where: { bookingId: payload.bookingId },
-      update: { partnerId: payload.partnerId, notes: payload.notes, status: 'ASSIGNED' },
-      create: { bookingId: payload.bookingId, partnerId: payload.partnerId, notes: payload.notes, status: 'ASSIGNED' },
-      include: { partner: true },
+    // Check if booking exists and is approved
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { assignment: true }
     });
-    // Update booking phase to OUT_FOR_DELIVERY only if already APPROVED
-    const booking = await tx.booking.update({ where: { id: payload.bookingId }, data: {}, select: { id: true, status: true } });
-    if (booking.status === 'APPROVED') {
-      await tx.booking.update({ where: { id: payload.bookingId }, data: { status: 'OUT_FOR_DELIVERY' } });
-      await tx.bookingEvent.create({ data: { bookingId: payload.bookingId, status: 'OUT_FOR_DELIVERY', title: 'Out for Delivery', description: 'Assigned to delivery partner and dispatched.' } });
-    }
-    return assignment;
-  });
-  return successResponse(result, 'Assignment created');
-}
 
-async function updateAssignmentHandler(request: NextRequest) {
-  const payload = updateSchema.parse(await parseRequestBody(request));
-  const result = await (prisma as any).$transaction(async (tx: any) => {
-    const updated = await tx.deliveryAssignment.update({ where: { bookingId: payload.bookingId }, data: { status: payload.status, notes: payload.notes } });
-    // Reflect to booking status when reaching terminal states
-    if (payload.status === 'OUT_FOR_DELIVERY') {
-      await tx.booking.update({ where: { id: payload.bookingId }, data: { status: 'OUT_FOR_DELIVERY' } });
-      await tx.bookingEvent.create({ data: { bookingId: payload.bookingId, status: 'OUT_FOR_DELIVERY', title: 'Out for Delivery', description: payload.notes || undefined } });
+    if (!booking) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Booking not found' 
+      }, { status: 404 });
     }
-    if (payload.status === 'DELIVERED') {
-      await tx.booking.update({ where: { id: payload.bookingId }, data: { status: 'DELIVERED', deliveredAt: new Date() } });
-      await tx.bookingEvent.create({ data: { bookingId: payload.bookingId, status: 'DELIVERED', title: 'Delivered', description: payload.notes || undefined } });
-      await tx.stockReservation.updateMany({ where: { bookingId: payload.bookingId, status: 'RESERVED' }, data: { status: 'CONSUMED' } });
+
+    if (booking.status !== 'APPROVED') {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Can only assign delivery to approved bookings' 
+      }, { status: 400 });
     }
-    if (payload.status === 'FAILED') {
-      // Release reservation
-      const res = await tx.stockReservation.findUnique({ where: { bookingId: payload.bookingId } });
-      if (res?.status === 'RESERVED') {
-        await tx.cylinderStock.update({ where: { id: 'default' }, data: { totalAvailable: { increment: res.quantity } } });
-        await tx.stockReservation.update({ where: { bookingId: payload.bookingId }, data: { status: 'RELEASED' } });
-        await tx.stockAdjustment.create({ data: { stockId: 'default', delta: res.quantity, reason: `Failed delivery release for ${payload.bookingId}` } });
+
+    if (booking.assignment) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Delivery already assigned to this booking' 
+      }, { status: 400 });
+    }
+
+    // Check if delivery partner exists and is active
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { id: partnerId }
+    });
+
+    if (!partner) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Delivery partner not found' 
+      }, { status: 404 });
+    }
+
+    if (!partner.isActive) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Delivery partner is not active' 
+      }, { status: 400 });
+    }
+
+    // Create delivery assignment
+    const deliveryAssignment = await prisma.deliveryAssignment.create({
+      data: {
+        bookingId,
+        partnerId,
+        status: 'ASSIGNED',
+        assignedAt: new Date(),
+        updatedAt: new Date()
       }
-      await tx.booking.update({ where: { id: payload.bookingId }, data: { status: 'APPROVED' } });
-      await tx.bookingEvent.create({ data: { bookingId: payload.bookingId, status: 'APPROVED', title: 'Delivery Failed', description: payload.notes || 'Will reschedule.' } });
-    }
-    return updated;
-  });
-  return successResponse(result, 'Assignment updated');
+    });
+
+    // Keep booking status as APPROVED - don't change to OUT_FOR_DELIVERY automatically
+    // Admin will manually change status when delivery partner confirms pickup
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        // status: 'OUT_FOR_DELIVERY', // REMOVED - keep as APPROVED
+        updatedAt: new Date()
+      }
+    });
+
+    // Create booking event for delivery assignment (not status change)
+    await prisma.bookingEvent.create({
+      data: {
+        bookingId,
+        status: 'APPROVED', // Keep as APPROVED
+        title: 'Delivery Assigned',
+        description: `Delivery assigned to ${partner.name}. Status remains APPROVED until pickup confirmed.`
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Delivery partner assigned successfully',
+      data: {
+        id: deliveryAssignment.id,
+        partnerId: deliveryAssignment.partnerId,
+        status: deliveryAssignment.status,
+        assignedAt: deliveryAssignment.assignedAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to assign delivery partner:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to assign delivery partner' },
+      { status: 500 }
+    );
+  }
 }
 
-export const GET = withMiddleware(listAssignmentsHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
-export const POST = withMiddleware(createAssignmentHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
-export const PUT = withMiddleware(updateAssignmentHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
+// PUT - Update delivery assignment status
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { bookingId, status, notes } = body;
+
+    if (!bookingId || !status) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Booking ID and status are required' 
+      }, { status: 400 });
+    }
+
+    // Check if delivery assignment exists
+    const deliveryAssignment = await prisma.deliveryAssignment.findUnique({
+      where: { bookingId },
+      include: { booking: true }
+    });
+
+    if (!deliveryAssignment) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Delivery assignment not found' 
+      }, { status: 404 });
+    }
+
+    // Update delivery assignment status
+    await prisma.deliveryAssignment.update({
+      where: { bookingId },
+      data: {
+        status,
+        notes: notes || deliveryAssignment.notes,
+        updatedAt: new Date()
+      }
+    });
+
+    // Update booking status based on delivery status
+    let newBookingStatus = deliveryAssignment.booking.status;
+    
+    if (status === 'PICKED_UP') {
+      // When picked up, keep booking as APPROVED
+      newBookingStatus = 'APPROVED';
+    } else if (status === 'OUT_FOR_DELIVERY') {
+      // When out for delivery, change booking status to OUT_FOR_DELIVERY
+      newBookingStatus = 'OUT_FOR_DELIVERY';
+    } else if (status === 'DELIVERED') {
+      // When delivered, change booking status to DELIVERED
+      newBookingStatus = 'DELIVERED';
+    } else if (status === 'FAILED') {
+      // When failed, change booking status to CANCELLED
+      newBookingStatus = 'CANCELLED';
+    }
+
+    // Only update booking status if it's different
+    if (newBookingStatus !== deliveryAssignment.booking.status) {
+      await prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: newBookingStatus,
+          updatedAt: new Date()
+        }
+      });
+
+      // Create booking event for status change
+      await prisma.bookingEvent.create({
+        data: {
+          bookingId,
+          status: newBookingStatus,
+          title: `Delivery ${status.toLowerCase().replace('_', ' ')}`,
+          description: notes || `Delivery status updated to ${status}. Booking status changed to ${newBookingStatus}.`
+        }
+      });
+    } else {
+      // Create booking event for delivery status update (no booking status change)
+      await prisma.bookingEvent.create({
+        data: {
+          bookingId,
+          status: deliveryAssignment.booking.status,
+          title: `Delivery ${status.toLowerCase().replace('_', ' ')}`,
+          description: notes || `Delivery status updated to ${status}.`
+        }
+      });
+    }
+
+    // Send email notification to customer about delivery status update
+    try {
+      if (deliveryAssignment.booking.userEmail) {
+        await sendDeliveryStatusEmail(
+          deliveryAssignment.booking.userEmail,
+          deliveryAssignment.booking.userName,
+          bookingId,
+          status,
+          notes || `Your delivery status has been updated to ${status.toLowerCase().replace('_', ' ')}.`
+        );
+      }
+    } catch (emailError) {
+      console.error('Failed to send delivery status email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Delivery status updated successfully',
+      data: {
+        id: deliveryAssignment.id,
+        status,
+        updatedAt: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to update delivery status:', error);
+    return NextResponse.json(
+      { success: false, message: 'Failed to update delivery status' },
+      { status: 500 }
+    );
+  }
+}
 
 

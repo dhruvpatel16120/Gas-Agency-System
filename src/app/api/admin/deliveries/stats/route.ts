@@ -40,8 +40,8 @@ async function getDeliveryStatsHandler(request: NextRequest) {
     });
 
     // Get total and active partners
-    const totalPartners = await (prisma as any).deliveryPartner.count();
-    const activePartners = await (prisma as any).deliveryPartner.count({
+    const totalPartners = await prisma.deliveryPartner.count();
+    const activePartners = await prisma.deliveryPartner.count({
       where: {
         isActive: true
       }

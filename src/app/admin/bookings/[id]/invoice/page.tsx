@@ -4,17 +4,17 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { formatCurrency } from '@/lib/utils';
 import { 
   ArrowLeft, 
   Download, 
-  Printer, 
-  Mail,
-  Package,
-  User,
-  MapPin,
+  Mail, 
   Phone,
   Calendar,
-  DollarSign
+  DollarSign,
+  User,
+  MapPin,
+  Printer
 } from 'lucide-react';
 
 type Booking = {
@@ -39,14 +39,7 @@ type Booking = {
   createdAt: string;
 };
 
-type SystemSettings = {
-  companyName: string;
-  companyAddress: string;
-  companyPhone: string;
-  companyEmail: string;
-  gstNumber: string;
-  pricePerCylinder: number;
-};
+
 
 export default function InvoicePage() {
   const { data: session, status } = useSession();
@@ -55,7 +48,7 @@ export default function InvoicePage() {
   const bookingId = params.id as string;
   
   const [booking, setBooking] = useState<Booking | null>(null);
-  const [settings, setSettings] = useState<SystemSettings | null>(null);
+
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -73,20 +66,14 @@ export default function InvoicePage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [bookingRes, settingsRes] = await Promise.all([
-        fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' }),
-        fetch('/api/admin/settings', { cache: 'no-store' })
-      ]);
+      const bookingRes = await fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' });
 
       if (bookingRes.ok) {
         const bookingData = await bookingRes.json();
         setBooking(bookingData.data);
       }
 
-      if (settingsRes.ok) {
-        const settingsData = await settingsRes.json();
-        setSettings(settingsData.data);
-      }
+
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
@@ -100,21 +87,33 @@ export default function InvoicePage() {
 
   const handleDownloadPDF = async () => {
     try {
-      const res = await fetch(`/api/admin/bookings/${bookingId}/invoice/pdf`);
+      setLoading(true);
+      const res = await fetch(`/api/admin/bookings/${bookingId}/invoice`);
+      
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${bookingId}.pdf`;
+        a.download = `invoice-${bookingId.slice(-8).toUpperCase()}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+        console.log('PDF downloaded successfully!');
+        
+        // Show success message
+        alert('PDF downloaded successfully! Check your Downloads folder.');
+      } else {
+        const errorData = await res.json();
+        console.error('Download failed:', errorData);
+        alert(`Failed to download PDF: ${errorData.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF');
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -137,15 +136,8 @@ export default function InvoicePage() {
   };
 
   const calculateTotal = () => {
-    if (!booking || !settings) return 0;
-    return booking.quantity * settings.pricePerCylinder;
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
+    if (!booking) return 0;
+    return booking.quantity * 1100; // Fixed price per cylinder
   };
 
   const formatDate = (dateString: string) => {
@@ -177,7 +169,7 @@ export default function InvoicePage() {
     );
   }
 
-  if (!booking || !settings) {
+  if (!booking) {
     return (
       <div className="min-h-screen bg-gray-50">
         <AdminNavbar />
@@ -229,10 +221,24 @@ export default function InvoicePage() {
               </button>
               <button
                 onClick={handleDownloadPDF}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                disabled={loading}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700'
+                } text-white`}
               >
-                <Download className="w-4 h-4" />
-                Download PDF
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Download PDF
+                  </>
+                )}
               </button>
               <button
                 onClick={handlePrint}
@@ -250,12 +256,12 @@ export default function InvoicePage() {
             <div className="p-8 border-b border-gray-200">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">{settings.companyName}</h2>
+                  <h2 className="text-3xl font-bold text-gray-900">Gas Agency System</h2>
                   <div className="mt-2 space-y-1 text-gray-600">
-                    <p>{settings.companyAddress}</p>
-                    <p>Phone: {settings.companyPhone}</p>
-                    <p>Email: {settings.companyEmail}</p>
-                    {settings.gstNumber && <p>GST: {settings.gstNumber}</p>}
+                    <p>123 Main Street, City, State 12345</p>
+                    <p>Phone: +91-1234567890</p>
+                    <p>Email: info@gasagency.com</p>
+                    <p>GST: 27ABCDE1234F1Z5</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -325,10 +331,10 @@ export default function InvoicePage() {
                     </td>
                     <td className="py-4 px-4 text-right text-gray-900">{booking.quantity}</td>
                     <td className="py-4 px-4 text-right text-gray-900">
-                      {formatCurrency(settings.pricePerCylinder)}
+                      {formatCurrency(1100)}
                     </td>
                     <td className="py-4 px-4 text-right font-medium text-gray-900">
-                      {formatCurrency(booking.quantity * settings.pricePerCylinder)}
+                      {formatCurrency(booking.quantity * 1100)}
                     </td>
                   </tr>
                 </tbody>

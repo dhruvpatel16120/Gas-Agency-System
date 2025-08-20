@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
+import { withMiddleware, parseRequestBody } from '@/lib/api-middleware';
+import { z } from 'zod';
 
 // GET - Fetch all bookings with filters
-export async function GET(request: NextRequest) {
+async function listBookingsHandler(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -53,34 +50,48 @@ export async function GET(request: NextRequest) {
               name: true,
               email: true,
               phone: true,
-              address: true
-            }
+              address: true,
+            },
           },
           payments: {
             orderBy: { createdAt: 'desc' },
-            take: 1
+            take: 1,
           },
-          deliveryAssignment: {
+          assignment: {
             include: {
               partner: {
                 select: {
                   id: true,
                   name: true,
-                  phone: true
-                }
-              }
-            }
-          }
+                  phone: true,
+                },
+              },
+            },
+          },
+          reservation: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit
+        take: limit,
       }),
-      prisma.booking.count({ where })
+      prisma.booking.count({ where }),
     ]);
 
     // Transform data for frontend
-    const transformedBookings = bookings.map(booking => ({
+    type BookingWithRelations = Prisma.BookingGetPayload<{
+      include: {
+        user: {
+          select: { id: true; name: true; email: true; phone: true; address: true };
+        };
+        payments: true;
+        assignment: { include: { partner: { select: { id: true; name: true; phone: true } } } };
+        reservation: true;
+      };
+    }>;
+
+    const bookingsWithRelations = bookings as unknown as BookingWithRelations[];
+
+    const transformedBookings = bookingsWithRelations.map((booking) => ({
       id: booking.id,
       userId: booking.userId,
       userName: booking.user.name,
@@ -97,11 +108,11 @@ export async function GET(request: NextRequest) {
       deliveryDate: booking.deliveryDate,
       deliveredAt: booking.deliveredAt,
       notes: booking.notes,
-      paymentStatus: booking.payments[0]?.status || 'PENDING',
+      paymentStatus: booking.payments[0]?.status || (booking.status === 'CANCELLED' ? 'CANCELLED' : 'PENDING'),
       paymentAmount: booking.payments[0]?.amount,
-      deliveryPartnerId: booking.deliveryAssignment?.partnerId,
-      deliveryPartnerName: booking.deliveryAssignment?.partner?.name,
-      cylinderReserved: booking.cylinderReserved,
+      deliveryPartnerId: booking.assignment?.partnerId,
+      deliveryPartnerName: booking.assignment?.partner?.name,
+      cylinderReserved: Boolean(booking.reservation),
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt
     }));
@@ -128,14 +139,24 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create new booking
-export async function POST(request: NextRequest) {
+async function createBookingHandler(request: NextRequest): Promise<NextResponse> {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
-    }
+    const createSchema = z.object({
+      userId: z.string().min(1),
+      userName: z.string().min(1),
+      userEmail: z.string().email().nullable().optional(),
+      userPhone: z.string().nullable().optional(),
+      userAddress: z.string().nullable().optional(),
+      quantity: z.number().int().min(1).max(1000),
+      paymentMethod: z.enum(['COD', 'UPI']),
+      receiverName: z.string().optional(),
+      receiverPhone: z.string().optional(),
+      expectedDate: z.string().optional(),
+      notes: z.string().max(1000).optional(),
+      status: z.enum(['PENDING','APPROVED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED']).default('APPROVED'),
+    });
 
-    const body = await request.json();
+    const parsed = createSchema.parse(await parseRequestBody(request));
     const {
       userId,
       userName,
@@ -148,8 +169,8 @@ export async function POST(request: NextRequest) {
       receiverPhone,
       expectedDate,
       notes,
-      status = 'APPROVED'
-    } = body;
+      status,
+    } = parsed;
 
     // Validate required fields
     if (!userId || !quantity || !paymentMethod) {
@@ -188,7 +209,6 @@ export async function POST(request: NextRequest) {
         notes,
         status,
         requestedAt: new Date(),
-        cylinderReserved: true
       }
     });
 
@@ -213,7 +233,7 @@ export async function POST(request: NextRequest) {
     await prisma.payment.create({
       data: {
         bookingId: booking.id,
-        amount: quantity * 1000, // Assuming ₹1000 per cylinder
+        amount: quantity * 1100, // ₹1100 per cylinder
         method: paymentMethod,
         status: paymentMethod === 'UPI' ? 'PENDING' : 'PENDING',
         createdAt: new Date()
@@ -239,3 +259,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const GET = withMiddleware(listBookingsHandler, { requireAuth: true, requireAdmin: true });
+export const POST = withMiddleware(createBookingHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import { ArrowLeft, Save, User, Package, Truck, Calendar, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
 
@@ -11,6 +12,7 @@ type User = {
   id: string;
   name: string;
   email: string;
+  userId: string;
   phone: string;
   address: string;
   remainingQuota: number;
@@ -88,12 +90,12 @@ export default function NewBookingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) {
-      alert('Please select a user first');
+      toast.error('Please select a user first');
       return;
     }
-
+ 
     if (formData.quantity > selectedUser.remainingQuota) {
-      alert(`User only has ${selectedUser.remainingQuota} cylinders remaining in their quota`);
+      toast.error(`User only has ${selectedUser.remainingQuota} cylinders remaining in their quota`);
       return;
     }
 
@@ -122,14 +124,14 @@ export default function NewBookingPage() {
 
       const result = await res.json();
       if (res.ok && result.success) {
-        alert('Booking created successfully!');
+        toast.success('Booking created successfully');
         router.push('/admin/bookings');
       } else {
-        alert(result.message || 'Failed to create booking');
+        toast.error(result.message || 'Failed to create booking');
       }
     } catch (error) {
       console.error('Failed to create booking:', error);
-      alert('Failed to create booking');
+      toast.error('Failed to create booking');
     } finally {
       setLoading(false);
     }

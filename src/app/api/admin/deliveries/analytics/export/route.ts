@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server';
-import { withMiddleware, successResponse } from '@/lib/api-middleware';
+import { NextRequest, NextResponse } from 'next/server';
+import { withMiddleware } from '@/lib/api-middleware';
 
-async function exportAnalyticsHandler(request: NextRequest) {
+async function exportAnalyticsHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d';
@@ -13,7 +13,7 @@ async function exportAnalyticsHandler(request: NextRequest) {
     const csvData = `Period,Partner ID,Area,Total Deliveries,Completed,Failed,Success Rate,Avg Delivery Time
 ${period},${partnerId || 'All'},${area || 'All'},0,0,0,0%,0 hours`;
 
-    return new Response(csvData, {
+    return new NextResponse(csvData, {
       headers: {
         'Content-Type': 'text/csv',
         'Content-Disposition': `attachment; filename="delivery-analytics-${period}.csv"`
@@ -21,7 +21,7 @@ ${period},${partnerId || 'All'},${area || 'All'},0,0,0,0%,0 hours`;
     });
   } catch (error) {
     console.error('Error exporting analytics:', error);
-    return new Response('Error exporting data', { status: 500 });
+    return new NextResponse('Error exporting data', { status: 500 });
   }
 }
 

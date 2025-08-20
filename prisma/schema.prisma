@@ -143,21 +143,12 @@ enum BookingStatus {
   CANCELLED
 }
 
-model SystemSettings {
-  id               String   @id @default("default")
-  upiId            String?
-  upiQrImageUrl    String?
-  pricePerCylinder Int      @default(1100) // INR amount per cylinder
-  updatedAt        DateTime @updatedAt
-  createdAt        DateTime @default(now())
 
-  @@map("system_settings")
-}
 
 model Payment {
   id        String        @id @default(cuid())
   bookingId String
-  amount    Int // in paise (INR * 100)
+  amount    Int // in rupees (INR)
   method    PaymentMethod
   status    PaymentStatus @default(PENDING)
   upiTxnId  String?
@@ -173,6 +164,7 @@ enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
+  CANCELLED
 }
 
 // Contact management
@@ -327,13 +319,16 @@ model DeliveryPartner {
 }
 
 model DeliveryAssignment {
-  id         String                   @id @default(cuid())
-  bookingId  String
-  partnerId  String
-  status     DeliveryAssignmentStatus @default(ASSIGNED)
-  notes      String?
-  assignedAt DateTime                 @default(now())
-  updatedAt  DateTime                 @updatedAt
+  id             String                   @id @default(cuid())
+  bookingId      String
+  partnerId      String
+  status         DeliveryAssignmentStatus @default(ASSIGNED)
+  scheduledDate  DateTime?
+  scheduledTime  String?
+  priority       String?                  @default("normal")
+  notes          String?
+  assignedAt     DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
 
   booking Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   partner DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Cascade)

@@ -42,18 +42,19 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
     throw new NotFoundError('User not found');
   }
 
-  // Read pricing/settings OUTSIDE the transaction to avoid timeouts/P2028
-  const globalSettings = await (prisma as any).systemSettings.findUnique({
-    where: { id: 'default' },
-    select: { pricePerCylinder: true },
-  });
+  // Fixed pricing
 
   // Create booking within transaction and atomically decrement quota if available
   const booking = await prisma.$transaction(async (tx) => {
-    // Atomically decrement only if remainingQuota > 0
+    // Validate that user has enough quota for the requested quantity
+    if (user.remainingQuota < quantity) {
+      throw new ConflictError(`Insufficient quota. You have ${user.remainingQuota} cylinder(s) remaining, but requested ${quantity}.`);
+    }
+
+    // Atomically decrement by the actual quantity
     const updated = await tx.user.updateMany({
-      where: { id: user.id, remainingQuota: { gt: 0 } },
-      data: { remainingQuota: { decrement: 1 } },
+      where: { id: user.id, remainingQuota: { gte: quantity } },
+      data: { remainingQuota: { decrement: quantity } },
     });
 
     if (updated.count === 0) {
@@ -95,12 +96,12 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
     });
 
     // Create payment record (PENDING) and compute amount
-    const unitPrice = (globalSettings?.pricePerCylinder ?? 1100);
-    const amountInPaise = (unitPrice * (typeof quantity === 'number' ? quantity : 1)) * 100;
+    const unitPrice = 1100; // Fixed price per cylinder
+    const amountInRupees = unitPrice * (typeof quantity === 'number' ? quantity : 1);
     await (tx as any).payment.create({
       data: {
         bookingId: created.id,
-        amount: amountInPaise,
+        amount: amountInRupees,
         method: paymentMethod as PaymentMethod,
         status: 'PENDING',
       },
@@ -161,12 +162,38 @@ async function listBookingsHandler(request: NextRequest, context?: Record<string
   }
 
   const total = await prisma.booking.count({ where: whereClause });
-  const bookings = await prisma.booking.findMany({
+  const bookingsRaw = await prisma.booking.findMany({
     where: whereClause,
     orderBy: { createdAt: 'desc' },
     skip: (page - 1) * limit,
     take: limit,
+    include: {
+      payments: { orderBy: { createdAt: 'desc' }, take: 1 }
+    }
   });
+
+  const bookings = bookingsRaw.map((b: any) => ({
+    id: b.id,
+    userId: b.userId,
+    userName: b.userName,
+    userEmail: b.userEmail,
+    userPhone: b.userPhone,
+    userAddress: b.userAddress,
+    paymentMethod: b.paymentMethod,
+    quantity: b.quantity,
+    receiverName: b.receiverName,
+    receiverPhone: b.receiverPhone,
+    status: b.status,
+    requestedAt: b.requestedAt,
+    deliveryDate: b.deliveryDate,
+    expectedDate: b.expectedDate,
+    deliveredAt: b.deliveredAt,
+    notes: b.notes,
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
+    paymentStatus: (b.payments?.[0]?.status) || (b.status === 'CANCELLED' ? 'CANCELLED' : 'PENDING'),
+    paymentAmount: b.payments?.[0]?.amount || null,
+  }));
 
   return successResponse(
     {

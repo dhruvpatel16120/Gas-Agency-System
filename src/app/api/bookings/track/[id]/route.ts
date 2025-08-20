@@ -26,6 +26,27 @@ async function getTrackingHandler(_request: NextRequest, context?: Record<string
       updatedAt: true,
       notes: true,
       userId: true,
+      // Include delivery assignment information
+      assignment: {
+        select: {
+          id: true,
+          status: true,
+          scheduledDate: true,
+          scheduledTime: true,
+          notes: true,
+          assignedAt: true,
+          updatedAt: true,
+          partner: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              vehicleNumber: true,
+              serviceArea: true
+            }
+          }
+        }
+      }
     },
   });
 

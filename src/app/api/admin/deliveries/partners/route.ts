@@ -35,8 +35,8 @@ async function listPartnersHandler(request: NextRequest) {
   }
   if (typeof parsed.isActive === 'boolean') where.isActive = parsed.isActive;
 
-  const total = await (prisma as any).deliveryPartner.count({ where });
-  const data = await (prisma as any).deliveryPartner.findMany({
+  const total = await prisma.deliveryPartner.count({ where });
+  const data = await prisma.deliveryPartner.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     skip: (parsed.page - 1) * parsed.limit,
@@ -48,14 +48,29 @@ async function listPartnersHandler(request: NextRequest) {
     const enhancedData = await Promise.all(
       data.map(async (partner: any) => {
         // Get delivery statistics for this partner
-        const totalDeliveries = await (prisma as any).deliveryAssignment.count({
+        const totalDeliveries = await prisma.deliveryAssignment.count({
           where: { partnerId: partner.id }
         });
 
-        const completedDeliveries = await (prisma as any).deliveryAssignment.count({
+        const completedDeliveries = await prisma.deliveryAssignment.count({
           where: { 
             partnerId: partner.id, 
             status: 'DELIVERED' 
+          }
+        });
+
+        // Get current assignments for today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const currentAssignments = await prisma.deliveryAssignment.count({
+          where: { 
+            partnerId: partner.id,
+            assignedAt: {
+              gte: today
+            },
+            status: {
+              notIn: ['DELIVERED', 'FAILED']
+            }
           }
         });
 
@@ -63,7 +78,7 @@ async function listPartnersHandler(request: NextRequest) {
         const averageRating = 4.5;
 
         // Get last active date
-        const lastAssignment = await (prisma as any).deliveryAssignment.findFirst({
+        const lastAssignment = await prisma.deliveryAssignment.findFirst({
           where: { partnerId: partner.id },
           orderBy: { updatedAt: 'desc' },
           select: { updatedAt: true }
@@ -75,6 +90,7 @@ async function listPartnersHandler(request: NextRequest) {
           ...partner,
           totalDeliveries,
           completedDeliveries,
+          currentAssignments,
           averageRating,
           lastActive
         };
@@ -112,7 +128,7 @@ async function listPartnersHandler(request: NextRequest) {
 async function createPartnerHandler(request: NextRequest) {
   const body = await parseRequestBody(request);
   const payload = createSchema.parse(body);
-  const created = await (prisma as any).deliveryPartner.create({ data: payload });
+  const created = await prisma.deliveryPartner.create({ data: payload });
   return successResponse(created, 'Delivery partner created', 201);
 }
 

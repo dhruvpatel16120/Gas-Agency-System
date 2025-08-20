@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import { 
   ArrowLeft, 
@@ -38,7 +39,11 @@ type DeliveryPartner = {
   serviceArea?: string;
   capacityPerDay: number;
   isActive: boolean;
-  currentAssignments: number;
+  currentAssignments?: number;
+  totalDeliveries?: number;
+  completedDeliveries?: number;
+  averageRating?: number;
+  lastActive?: string;
 };
 
 export default function AssignDeliveryPage() {
@@ -77,7 +82,7 @@ export default function AssignDeliveryPage() {
     try {
       const [bookingRes, partnersRes] = await Promise.all([
         fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' }),
-        fetch('/api/admin/deliveries/partners?active=true', { cache: 'no-store' })
+        fetch('/api/admin/deliveries/partners?includeStats=true', { cache: 'no-store' })
       ]);
 
       if (bookingRes.ok) {
@@ -87,7 +92,23 @@ export default function AssignDeliveryPage() {
 
       if (partnersRes.ok) {
         const partnersData = await partnersRes.json();
-        setPartners(partnersData.data || []);
+        
+        // Fix: The API returns { data: { data: [...], pagination: {...} } }
+        // So we need to access partnersData.data.data
+        if (partnersData.success && partnersData.data && partnersData.data.data) {
+          setPartners(partnersData.data.data);
+        } else if (partnersData.data && Array.isArray(partnersData.data)) {
+          // Fallback: if the response structure is different
+          setPartners(partnersData.data);
+        } else {
+          console.error('API response indicates failure or missing data');
+          setPartners([]);
+        }
+      } else {
+        console.error('Partners API error:', partnersRes.status, partnersRes.statusText);
+        const errorText = await partnersRes.text();
+        console.error('Error response:', errorText);
+        setPartners([]);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -104,12 +125,12 @@ export default function AssignDeliveryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPartner) {
-      alert('Please select a delivery partner');
+      toast.error('Please select a delivery partner');
       return;
     }
 
     if (!formData.scheduledDate) {
-      alert('Please select a scheduled date');
+      toast.error('Please select a scheduled date');
       return;
     }
 
@@ -131,14 +152,14 @@ export default function AssignDeliveryPage() {
 
       const result = await res.json();
       if (res.ok && result.success) {
-        alert('Delivery partner assigned successfully!');
+        toast.success('Delivery partner assigned successfully! Email notification sent to customer.');
         router.push(`/admin/bookings/${bookingId}`);
       } else {
-        alert(result.message || 'Failed to assign delivery partner');
+        toast.error(result.message || 'Failed to assign delivery partner');
       }
     } catch (error) {
       console.error('Failed to assign delivery partner:', error);
-      alert('Failed to assign delivery partner');
+      toast.error('Failed to assign delivery partner');
     } finally {
       setSubmitting(false);
     }
@@ -265,7 +286,8 @@ export default function AssignDeliveryPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {partners.length > 0 ? (
+                
+                {partners && partners.length > 0 ? (
                   <div className="space-y-3">
                     {partners.map((partner) => (
                       <div
@@ -292,7 +314,7 @@ export default function AssignDeliveryPage() {
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-medium text-gray-900">
-                              {partner.currentAssignments}/{partner.capacityPerDay}
+                              {partner.currentAssignments || 0}/{partner.capacityPerDay}
                             </div>
                             <div className="text-xs text-gray-500">Today's deliveries</div>
                             <div className="text-xs text-gray-500">

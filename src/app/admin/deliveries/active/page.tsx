@@ -49,6 +49,7 @@ type FilterOptions = {
 export default function ActiveDeliveriesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [partners, setPartners] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +60,7 @@ export default function ActiveDeliveriesPage() {
     priority: '',
     search: ''
   });
+  const [deliveryNotes, setDeliveryNotes] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -77,7 +79,7 @@ export default function ActiveDeliveriesPage() {
     try {
       const [deliveriesRes, partnersRes] = await Promise.all([
         fetch('/api/admin/deliveries/active', { cache: 'no-store' }),
-        fetch('/api/admin/deliveries/partners?active=true', { cache: 'no-store' })
+        fetch('/api/admin/deliveries/partners?isActive=true', { cache: 'no-store' })
       ]);
 
       if (deliveriesRes.ok) {
@@ -102,6 +104,10 @@ export default function ActiveDeliveriesPage() {
 
   const updateDeliveryStatus = async (deliveryId: string, newStatus: string, notes?: string) => {
     setUpdating(deliveryId);
+    
+    // Get notes from state or use provided notes
+    const statusNotes = notes || deliveryNotes[deliveryId] || '';
+    
     try {
       const res = await fetch('/api/admin/deliveries/assignments', {
         method: 'PUT',
@@ -109,14 +115,20 @@ export default function ActiveDeliveriesPage() {
         body: JSON.stringify({ 
           bookingId: deliveryId, 
           status: newStatus,
-          notes 
+          notes: statusNotes 
         })
       });
 
       if (res.ok) {
+        const result = await res.json();
+        // Show success message
+        alert(`Status updated successfully to ${newStatus.toLowerCase().replace('_', ' ')}`);
+        // Clear notes for this delivery
+        setDeliveryNotes(prev => ({ ...prev, [deliveryId]: '' }));
         await loadData();
       } else {
-        alert('Failed to update delivery status');
+        const error = await res.json();
+        alert(`Failed to update delivery status: ${error.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -367,17 +379,63 @@ export default function ActiveDeliveriesPage() {
                                   {new Date(delivery.expectedDelivery).toLocaleDateString()}
                                 </span>
                               </div>
+                              
+                              {/* Delivery Progress Tracking */}
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
+                                <div className="text-xs font-medium text-gray-600 mb-2">Delivery Progress:</div>
+                                <div className="flex items-center space-x-2">
+                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'ASSIGNED' ? 'bg-blue-500' : 'bg-gray-300'}`} title="Assigned"></div>
+                                  <div className="text-xs text-gray-500">Assigned</div>
+                                  
+                                  <div className="w-4 h-px bg-gray-300"></div>
+                                  
+                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'PICKED_UP' ? 'bg-yellow-500' : 'bg-gray-300'}`} title="Picked Up"></div>
+                                  <div className="text-xs text-gray-500">Picked Up</div>
+                                  
+                                  <div className="w-4 h-px bg-gray-300"></div>
+                                  
+                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'OUT_FOR_DELIVERY' ? 'bg-purple-500' : 'bg-gray-300'}`} title="Out for Delivery"></div>
+                                  <div className="text-xs text-gray-500">On Way</div>
+                                  
+                                  <div className="w-4 h-px bg-gray-300"></div>
+                                  
+                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'DELIVERED' ? 'bg-green-500' : 'bg-gray-300'}`} title="Delivered"></div>
+                                  <div className="text-xs text-gray-500">Delivered</div>
+                                </div>
+                                
+                                {/* Current Status */}
+                                <div className="mt-2 text-xs">
+                                  <span className="font-medium text-gray-700">Current: </span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(delivery.status)}`}>
+                                    {delivery.status.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex flex-col gap-2 ml-4">
+                          {/* Notes Input */}
+                          <div className="mb-2">
+                            <textarea
+                              placeholder="Add notes for status updates..."
+                              value={deliveryNotes[delivery.bookingId] || ''}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              rows={2}
+                              onChange={(e) => {
+                                setDeliveryNotes(prev => ({ ...prev, [delivery.bookingId]: e.target.value }));
+                              }}
+                            />
+                          </div>
+                          
                           {/* Status Update Buttons */}
                           {delivery.status === 'ASSIGNED' && (
                             <button
                               onClick={() => updateDeliveryStatus(delivery.bookingId, 'PICKED_UP')}
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200 transition-colors disabled:opacity-50"
+                              title="Mark when delivery partner picks up the cylinders"
                             >
                               Mark Picked Up
                             </button>
@@ -388,8 +446,9 @@ export default function ActiveDeliveriesPage() {
                               onClick={() => updateDeliveryStatus(delivery.bookingId, 'OUT_FOR_DELIVERY')}
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-purple-100 text-purple-800 rounded text-sm hover:bg-purple-200 transition-colors disabled:opacity-50"
+                              title="Mark when delivery partner starts delivery journey"
                             >
-                              Out for Delivery
+                              Start Delivery
                             </button>
                           )}
 
@@ -398,6 +457,7 @@ export default function ActiveDeliveriesPage() {
                               onClick={() => updateDeliveryStatus(delivery.bookingId, 'DELIVERED')}
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200 transition-colors disabled:opacity-50"
+                              title="Mark when delivery is completed successfully"
                             >
                               Mark Delivered
                             </button>
@@ -423,6 +483,7 @@ export default function ActiveDeliveriesPage() {
                               onClick={() => updateDeliveryStatus(delivery.bookingId, 'FAILED')}
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200 transition-colors disabled:opacity-50"
+                              title="Mark if delivery fails or cannot be completed"
                             >
                               Mark Failed
                             </button>

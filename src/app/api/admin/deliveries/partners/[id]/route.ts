@@ -18,7 +18,7 @@ async function getPartnerHandler(_request: NextRequest, context?: Record<string,
   const raw = (context as any)?.params; const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
   const id = (awaited?.id as string) || undefined;
   if (!id) throw new NotFoundError('Partner ID is required');
-  const data = await (prisma as any).deliveryPartner.findUnique({ where: { id }, include: { assignments: true } });
+  const data = await prisma.deliveryPartner.findUnique({ where: { id }, include: { assignments: true } });
   if (!data) throw new NotFoundError('Partner not found');
   return successResponse(data, 'Partner retrieved');
 }
@@ -29,9 +29,9 @@ async function updatePartnerHandler(request: NextRequest, context?: Record<strin
   if (!id) throw new NotFoundError('Partner ID is required');
   const body = await parseRequestBody(request);
   const payload = updateSchema.parse(body);
-  const exists = await (prisma as any).deliveryPartner.findUnique({ where: { id }, select: { id: true } });
+  const exists = await prisma.deliveryPartner.findUnique({ where: { id }, select: { id: true } });
   if (!exists) throw new NotFoundError('Partner not found');
-  const updated = await (prisma as any).deliveryPartner.update({ where: { id }, data: payload });
+  const updated = await prisma.deliveryPartner.update({ where: { id }, data: payload });
   return successResponse(updated, 'Partner updated');
 }
 
@@ -39,9 +39,9 @@ async function deletePartnerHandler(_request: NextRequest, context?: Record<stri
   const raw = (context as any)?.params; const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
   const id = (awaited?.id as string) || undefined;
   if (!id) throw new NotFoundError('Partner ID is required');
-  const activeAssignments = await (prisma as any).deliveryAssignment.count({ where: { partnerId: id, status: { in: ['ASSIGNED','PICKED_UP','OUT_FOR_DELIVERY'] } } });
+  const activeAssignments = await prisma.deliveryAssignment.count({ where: { partnerId: id, status: { in: ['ASSIGNED','PICKED_UP','OUT_FOR_DELIVERY'] } } });
   if (activeAssignments > 0) throw new ConflictError('Cannot delete partner with active assignments');
-  await (prisma as any).deliveryPartner.delete({ where: { id } });
+  await prisma.deliveryPartner.delete({ where: { id } });
   return successResponse(null, 'Partner deleted');
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AdminNavbar from '@/components/AdminNavbar';
+import { toast } from 'react-hot-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import { 
   ArrowLeft, 
@@ -122,15 +123,15 @@ export default function EditBookingPage() {
       });
 
       if (res.ok) {
-        alert('Booking updated successfully!');
+        toast.success('Booking updated successfully');
         router.push(`/admin/bookings/${bookingId}`);
       } else {
         const error = await res.json();
-        alert(error.message || 'Failed to update booking');
+        toast.error(error.message || 'Failed to update booking');
       }
     } catch (error) {
       console.error('Failed to update booking:', error);
-      alert('Failed to update booking');
+      toast.error('Failed to update booking');
     } finally {
       setSaving(false);
     }

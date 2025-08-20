@@ -44,9 +44,9 @@ async function getRecentDeliveriesHandler(request: NextRequest) {
       partnerName: delivery.partner?.name || 'Unassigned',
       partnerPhone: delivery.partner?.phone || '',
       assignedAt: delivery.assignedAt,
-      expectedDelivery: delivery.booking.deliveryDate || delivery.assignedAt,
+      expectedDelivery: delivery.scheduledDate || delivery.booking.deliveryDate || delivery.assignedAt,
       notes: delivery.notes,
-      priority: 'MEDIUM' // Default priority, can be enhanced later
+      priority: delivery.priority || 'MEDIUM'
     }));
 
     return successResponse(transformedDeliveries);

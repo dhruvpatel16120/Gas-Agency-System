@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { Shield, Menu, LogOut, User, Users, Calendar, Package, Settings, ChevronDown } from 'lucide-react';
+import { Shield, Menu, LogOut, User, Users, Calendar, Package, ChevronDown } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 
 export default function AdminNavbar() {
@@ -73,11 +73,11 @@ export default function AdminNavbar() {
  						<NavLink href="/admin/inventory" label="Inventory" />
  						<NavLink href="/admin/contacts" label="Contacts" />
  						<NavLink href="/admin/deliveries" label="Deliveries" />
- 						<NavLink href="/admin/settings" label="Settings" />
+ 						
  					</nav>
 
  					{/* Desktop avatar + menu */}
- 					<div className="relative hidden md:block" ref={menuRef}>
+ 					<div className="relative hidden md:block z-50" ref={menuRef}>
  						<button
  							onClick={() => setOpen((v) => !v)}
  							className="inline-flex items-center gap-2 rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
@@ -130,11 +130,7 @@ export default function AdminNavbar() {
  									<Link href="/admin/deliveries" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
  										<span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-purple-50 text-purple-600"><Package className="w-4 h-4" /></span>
  										<span className="flex-1">Deliveries</span>
- 									</Link>
- 									<Link href="/admin/settings" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
- 										<span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-purple-50 text-purple-600"><Settings className="w-4 h-4" /></span>
- 										<span className="flex-1">Settings</span>
- 									</Link>
+ 									</Link>				
  									<Link href="/admin/contacts" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
  										<span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-purple-50 text-purple-600"><Calendar className="w-4 h-4" /></span>
  										<span className="flex-1">Contacts</span>
@@ -196,7 +192,7 @@ export default function AdminNavbar() {
  							<Link href="/admin/users" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Users</Link>
  							<Link href="/admin/inventory" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Inventory</Link>
  							<Link href="/admin/deliveries" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Deliveries</Link>
- 							<Link href="/admin/settings" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Settings</Link>
+ 							
  							<Link href="/admin/contacts" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Contacts</Link>
  						</nav>
  						<div className="border-t border-gray-100 p-2">

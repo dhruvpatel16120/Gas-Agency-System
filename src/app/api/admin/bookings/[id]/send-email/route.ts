@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 import { sendEmail } from '@/lib/email';
 
 // POST - Send various types of emails
@@ -86,7 +86,7 @@ export async function POST(
       await prisma.bookingEvent.create({
         data: {
           bookingId: bookingId,
-          status: 'EMAIL_SENT',
+          status: booking.status,
           title: `${emailType} Email Sent`,
           description: `${emailType} email sent to ${booking.user.email}`,
           createdAt: new Date()
@@ -195,7 +195,7 @@ async function sendPaymentReminderEmail(booking: any) {
       <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
         <h3>Payment Details:</h3>
         <p><strong>Booking ID:</strong> ${booking.id}</p>
-        <p><strong>Amount Due:</strong> ₹${booking.payments[0]?.amount || '0'}</p>
+        <p><strong>Amount Due:</strong> ₹${(booking.payments[0]?.amount || 0)}</p>
         <p><strong>Payment Method:</strong> ${booking.paymentMethod}</p>
         <p><strong>Status:</strong> Pending</p>
       </div>

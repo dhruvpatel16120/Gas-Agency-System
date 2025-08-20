@@ -24,13 +24,15 @@ export default function BookCylinderPage() {
   const [expectedDate, setExpectedDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
       router.push('/login');
     }
-    // Prefill from profile
+    // Prefill from profile and check quota
     const load = async () => {
       try {
         const res = await fetch('/api/user/profile');
@@ -39,9 +41,12 @@ export default function BookCylinderPage() {
           const data = json.data || {};
           if (!receiverName) setReceiverName(data.name || '');
           if (!receiverPhone) setReceiverPhone(data.phone || '');
+          setRemainingQuota(data.remainingQuota || 0);
         }
       } catch {
         // no-op
+      } finally {
+        setQuotaLoading(false);
       }
     };
     void load();
@@ -57,31 +62,15 @@ export default function BookCylinderPage() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!['UPI', 'COD'].includes(paymentMethod)) {
-      e.paymentMethod = 'Please select a valid payment method';
+    if (!receiverName.trim()) e.receiverName = 'Receiver name is required';
+    if (!receiverPhone.trim()) e.receiverPhone = 'Receiver phone is required';
+    if (receiverPhone.trim() && !/^[0-9]{10}$/.test(receiverPhone.replace(/\s/g, ''))) {
+      e.receiverPhone = 'Phone must be 10 digits';
     }
-    if (quantity < 1 || quantity > 3) {
-      e.quantity = 'Quantity must be between 1 and 3';
-    }
-    if (!receiverName || receiverName.trim().length < 2) {
-      e.receiverName = 'Receiver name must be at least 2 characters';
-    }
-    if (!/^([6-9]\d{9})$/.test(receiverPhone.replace(/\s/g, ''))) {
-      e.receiverPhone = 'Enter a valid 10-digit phone number';
-    }
-    if (expectedDate) {
-      const date = new Date(expectedDate);
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const max = new Date();
-      max.setDate(max.getDate() + 7);
-      max.setHours(23,59,59,999);
-      if (!(date >= today && date <= max)) {
-        e.expectedDate = 'Expected delivery must be within the next 7 days';
-      }
-    }
-    if (notes.length > 500) {
-      e.notes = 'Notes cannot exceed 500 characters';
+    if (quantity < 1) e.quantity = 'Quantity must be at least 1';
+    if (quantity > (remainingQuota || 0)) e.quantity = `You can only book up to ${remainingQuota} cylinder(s)`;
+    if (expectedDate && new Date(expectedDate) < new Date()) {
+      e.expectedDate = 'Expected date cannot be in the past';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -92,6 +81,20 @@ export default function BookCylinderPage() {
     if (!validate()) return;
     setLoading(true);
     try {
+      if (paymentMethod === 'UPI') {
+        // Redirect to pre-payment page with necessary details via query params
+        const params = new URLSearchParams({
+          quantity: String(quantity),
+          receiverName: receiverName.trim(),
+          receiverPhone: receiverPhone.replace(/\s/g, ''),
+          expectedDate: expectedDate || '',
+          notes: notes.trim(),
+        });
+        router.push(`/user/pay/upi/new?${params.toString()}`);
+        return;
+      }
+
+      // COD: Create booking immediately
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +123,7 @@ export default function BookCylinderPage() {
     }
   };
 
-  if (status === 'loading' || !session) {
+  if (status === 'loading' || !session || quotaLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -131,12 +134,72 @@ export default function BookCylinderPage() {
     );
   }
 
+  // Check if user has quota remaining
+  if (remainingQuota !== null && remainingQuota <= 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <UserNavbar />
+        <main className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Yearly Booking Limit Reached</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              We cannot accept new bookings from you at this time. Your yearly quota of gas cylinders has been exhausted.
+            </p>
+            <div className="space-y-4">
+              <button
+                onClick={() => router.push('/user')}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Go to Dashboard
+              </button>
+              <div className="text-sm text-gray-500">
+                <p>You can still track your existing bookings and manage your account.</p>
+                <p>Contact support if you believe this is an error.</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <UserNavbar />
 
       <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+        <div className="px-4 py-6 sm:px-0 space-y-6">
+          {/* Quota Information */}
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Your Gas Cylinder Quota</h2>
+                  <p className="text-sm text-gray-600">
+                    You have <span className="font-semibold text-blue-600">{remainingQuota}</span> cylinder(s) remaining this year
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-blue-600">{remainingQuota}</div>
+                  <div className="text-xs text-gray-500">Remaining</div>
+                </div>
+              </div>
+              {remainingQuota !== null && remainingQuota <= 2 && (
+                <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ You're running low on cylinders. Only {remainingQuota} remaining this year.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Booking Form */}
           <Card className="shadow-xl">
             <CardHeader>
               <CardTitle>Book New Cylinder</CardTitle>
@@ -195,19 +258,28 @@ export default function BookCylinderPage() {
                 {/* Details under payment method */}
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={3}
+                    <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+                      Quantity <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="quantity"
                       value={quantity}
                       onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                    />
-                    <p className="mt-1 text-xs text-gray-500">Minimum 1, maximum 3 cylinders per booking.</p>
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      {Array.from({ length: Math.min(remainingQuota || 1, 3) }, (_, i) => i + 1).map((num) => (
+                        <option key={num} value={num}>
+                          {num} cylinder{num > 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
                     {errors.quantity && (
-                      <p className="mt-2 text-sm text-red-600">{errors.quantity}</p>
+                      <p className="mt-1 text-sm text-red-600">{errors.quantity}</p>
                     )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Maximum: {remainingQuota} cylinder(s) available
+                    </p>
                   </div>
 
                   <div>
@@ -271,7 +343,7 @@ export default function BookCylinderPage() {
               </CardContent>
               <CardFooter>
                 <Button type="submit" className="w-full" loading={loading}>
-                  Create Booking
+                  {paymentMethod === 'UPI' ? 'Make Payment' : 'Create Booking'}
                 </Button>
               </CardFooter>
             </form>

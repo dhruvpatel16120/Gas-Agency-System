@@ -147,6 +147,7 @@ export function calculateDeliveryDate(): Date {
 
 // Format currency (Indian Rupees)
 export function formatCurrency(amount: number): string {
+  // Amount is already in rupees, no conversion needed
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
