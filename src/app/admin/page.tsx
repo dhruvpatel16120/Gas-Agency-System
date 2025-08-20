@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 import { 
-  Flame, 
   Users, 
   Calendar, 
   Package, 
   TrendingUp, 
   TrendingDown, 
-  Eye,
   MessageSquare,
   Truck,
   AlertCircle,
@@ -35,32 +33,36 @@ type DashboardStats = {
   newContacts: number;
   monthlyRevenue: number;
   revenueChange: number;
+  deliverySuccessRate: number;
+  monthlyBookingValue: number;
+  monthlyCollected: number;
 };
 
-type RecentActivity = {
+
+
+type ActiveDelivery = {
   id: string;
-  type: 'booking' | 'user' | 'delivery' | 'contact';
-  title: string;
-  description: string;
-  timestamp: string;
-  status: 'success' | 'warning' | 'info';
+  bookingId: string;
+  status: string;
+  customer: string;
+  partner: string;
+  estimated: string;
+};
+
+type DashboardData = {
+  stats: DashboardStats;
+  activeDeliveries: ActiveDelivery[];
+  paymentMethods: { method: string; count: number }[];
+  deliveryStats: { status: string; count: number }[];
+  inventoryActivity: any[];
 };
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState<DashboardStats>({
-    totalUsers: 0,
-    totalBookings: 0,
-    totalCylinders: 0,
-    pendingBookings: 0,
-    activeDeliveries: 0,
-    newContacts: 0,
-    monthlyRevenue: 0,
-    revenueChange: 0
-  });
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -79,88 +81,31 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Simulate API calls for dashboard data
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setStats({
-        totalUsers: 1247,
-        totalBookings: 892,
-        totalCylinders: 2500,
-        pendingBookings: 23,
-        activeDeliveries: 15,
-        newContacts: 8,
-        monthlyRevenue: 45600,
-        revenueChange: 12.5
+      const response = await fetch('/api/admin/dashboard', {
+        cache: 'no-store'
       });
-
-      setRecentActivity([
-        {
-          id: '1',
-          type: 'booking',
-          title: 'New Gas Cylinder Order',
-          description: 'User John Doe placed an order for 2 cylinders',
-          timestamp: '2 minutes ago',
-          status: 'success'
-        },
-        {
-          id: '2',
-          type: 'user',
-          title: 'New User Registration',
-          description: 'Sarah Wilson created a new account',
-          timestamp: '15 minutes ago',
-          status: 'info'
-        },
-        {
-          id: '3',
-          type: 'delivery',
-          title: 'Delivery Completed',
-          description: 'Order #BK-2024-001 delivered successfully',
-          timestamp: '1 hour ago',
-          status: 'success'
-        },
-        {
-          id: '4',
-          type: 'contact',
-          title: 'New Support Ticket',
-          description: 'Customer inquiry about delivery status',
-          timestamp: '2 hours ago',
-          status: 'warning'
-        },
-        {
-          id: '5',
-          type: 'booking',
-          title: 'Payment Received',
-          description: 'Payment confirmed for order #BK-2024-015',
-          timestamp: '3 hours ago',
-          status: 'success'
-        }
-      ]);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        setDashboardData(result.data);
+      } else {
+        throw new Error(result.message || 'Failed to load dashboard data');
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'booking': return <Calendar className="w-4 h-4" />;
-      case 'user': return <Users className="w-4 h-4" />;
-      case 'delivery': return <Truck className="w-4 h-4" />;
-      case 'contact': return <MessageSquare className="w-4 h-4" />;
-      default: return <Activity className="w-4 h-4" />;
-    }
-  };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return 'text-green-600 bg-green-50 border-green-200';
-      case 'warning': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'info': return 'text-blue-600 bg-blue-50 border-blue-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
 
   if (status === 'loading') {
     return (
@@ -176,6 +121,63 @@ export default function AdminDashboard() {
   if (!session || session.user.role !== 'ADMIN') {
     return null;
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+        <AdminNavbar />
+        <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-0">
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+        <AdminNavbar />
+        <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
+          <div className="px-4 sm:px-0">
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Dashboard</h2>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={fetchDashboardData}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const stats = dashboardData?.stats || {
+    totalUsers: 0,
+    totalBookings: 0,
+    totalCylinders: 0,
+    pendingBookings: 0,
+    activeDeliveries: 0,
+    newContacts: 0,
+    monthlyRevenue: 0,
+    revenueChange: 0,
+    deliverySuccessRate: 0,
+    monthlyBookingValue: 0,
+    monthlyCollected: 0
+  };
+
+  const activeDeliveries = dashboardData?.activeDeliveries || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
@@ -211,7 +213,7 @@ export default function AdminDashboard() {
                 <div className="text-3xl font-bold text-gray-900">{stats.totalUsers.toLocaleString()}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <TrendingUp className="w-4 h-4 text-green-500" />
-                  <p className="text-xs text-green-600">+12% from last month</p>
+                  <p className="text-xs text-green-600">Active users</p>
                 </div>
               </CardContent>
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500 to-purple-600 opacity-5 rounded-full -translate-y-16 translate-x-16"></div>
@@ -226,7 +228,7 @@ export default function AdminDashboard() {
                 <div className="text-3xl font-bold text-gray-900">{stats.totalBookings.toLocaleString()}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <TrendingUp className="w-4 h-4 text-green-500" />
-                  <p className="text-xs text-green-600">+8% from last month</p>
+                  <p className="text-xs text-green-600">All time bookings</p>
                 </div>
               </CardContent>
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500 to-blue-600 opacity-5 rounded-full -translate-y-16 translate-x-16"></div>
@@ -241,7 +243,7 @@ export default function AdminDashboard() {
                 <div className="text-3xl font-bold text-gray-900">{stats.totalCylinders.toLocaleString()}</div>
                 <div className="flex items-center gap-2 mt-2">
                   <TrendingDown className="w-4 h-4 text-orange-500" />
-                  <p className="text-xs text-orange-600">-3% from last week</p>
+                  <p className="text-xs text-orange-600">In stock</p>
                 </div>
               </CardContent>
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500 to-green-600 opacity-5 rounded-full -translate-y-16 translate-x-16"></div>
@@ -255,8 +257,24 @@ export default function AdminDashboard() {
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900">₹{stats.monthlyRevenue.toLocaleString()}</div>
                 <div className="flex items-center gap-2 mt-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <p className="text-xs text-green-600">+{stats.revenueChange}% from last month</p>
+                  {stats.revenueChange >= 0 ? (
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  )}
+                  <p className={`text-xs ${stats.revenueChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {stats.revenueChange >= 0 ? '+' : ''}{stats.revenueChange}% from last month
+                  </p>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Booking Value:</span>
+                    <span className="font-medium text-gray-900">₹{stats.monthlyBookingValue?.toLocaleString() || '0'}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <span className="text-gray-600">Collected:</span>
+                    <span className="font-medium text-green-600">₹{stats.monthlyCollected?.toLocaleString() || '0'}</span>
+                  </div>
                 </div>
               </CardContent>
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-500 to-green-600 opacity-5 rounded-full -translate-y-16 translate-x-16"></div>
@@ -264,7 +282,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Secondary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="hover:shadow-lg transition-all duration-300">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
@@ -300,22 +318,35 @@ export default function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-gray-900">{stats.newContacts}</div>
-                <p className="text-xs text-gray-500 mt-1">Unread messages</p>
+                <p className="text-xs text-gray-500 mt-1">Last 7 days</p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-lg transition-all duration-300">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  Delivery Success
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-gray-900">{stats.deliverySuccessRate}%</div>
+                <p className="text-xs text-gray-500 mt-1">Success rate</p>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          {/* Quick Actions */}
+            {/* Quick Actions */}
             <div className="xl:col-span-2">
               <Card className="hover:shadow-lg transition-all duration-300">
-            <CardHeader>
+                <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-purple-600" />
                     Quick Actions
                   </CardTitle>
-            </CardHeader>
-            <CardContent>
+                </CardHeader>
+                <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <Link href="/admin/users" className="group">
                       <div className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors duration-200 text-left group-hover:border-purple-300">
@@ -335,7 +366,7 @@ export default function AdminDashboard() {
                           <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors duration-200">
                             <Calendar className="w-5 h-5 text-blue-600" />
                           </div>
-                  <h3 className="font-semibold text-gray-900">Booking Management</h3>
+                          <h3 className="font-semibold text-gray-900">Booking Management</h3>
                         </div>
                         <p className="text-sm text-gray-600">Approve, track, and manage customer bookings</p>
                       </div>
@@ -376,8 +407,6 @@ export default function AdminDashboard() {
                         <p className="text-sm text-gray-600">Track deliveries and manage delivery partners</p>
                       </div>
                     </Link>
-
-
 
                     <Link href="/admin/bookings/analytics" className="group">
                       <div className="p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors duration-200 text-left group-hover:border-cyan-300">
@@ -430,33 +459,36 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      { id: '1', bookingId: 'BK-2024-001', status: 'IN_TRANSIT', customer: 'John Doe', estimated: '2 hours' },
-                      { id: '2', bookingId: 'BK-2024-002', status: 'ASSIGNED', customer: 'Sarah Wilson', estimated: '4 hours' },
-                      { id: '3', bookingId: 'BK-2024-003', status: 'PENDING', customer: 'Mike Johnson', estimated: '6 hours' },
-                      { id: '4', bookingId: 'BK-2024-004', status: 'IN_TRANSIT', customer: 'Emily Brown', estimated: '1 hour' },
-                      { id: '5', bookingId: 'BK-2024-005', status: 'ASSIGNED', customer: 'David Lee', estimated: '3 hours' }
-                    ].map((delivery) => (
-                      <div key={delivery.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors duration-200">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium text-gray-900">#{delivery.bookingId}</span>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              delivery.status === 'IN_TRANSIT' ? 'bg-purple-100 text-purple-800 border-purple-200' :
-                              delivery.status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                              'bg-yellow-100 text-yellow-800 border-yellow-200'
-                            }`}>
-                              {delivery.status.replace('_', ' ')}
-                            </span>
+                    {activeDeliveries.length > 0 ? (
+                      activeDeliveries.map((delivery) => (
+                        <div key={delivery.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors duration-200">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-900">#{delivery.bookingId.slice(-8)}</span>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                delivery.status === 'OUT_FOR_DELIVERY' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                                delivery.status === 'ASSIGNED' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                delivery.status === 'PICKED_UP' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                'bg-gray-100 text-gray-800 border-gray-200'
+                              }`}>
+                                {delivery.status.replace('_', ' ')}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600">{delivery.customer}</p>
+                            <p className="text-xs text-gray-500">Partner: {delivery.partner}</p>
                           </div>
-                          <p className="text-xs text-gray-600">{delivery.customer}</p>
+                          <div className="text-right">
+                            <div className="text-xs text-gray-500">Est. delivery</div>
+                            <div className="text-sm font-medium text-gray-900">{delivery.estimated}</div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs text-gray-500">Est. delivery</div>
-                          <div className="text-sm font-medium text-gray-900">{delivery.estimated}</div>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 text-gray-500">
+                        <Truck className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm">No active deliveries</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <Link 
@@ -470,6 +502,8 @@ export default function AdminDashboard() {
               </Card>
             </div>
           </div>
+
+
         </div>
       </main>
     </div>

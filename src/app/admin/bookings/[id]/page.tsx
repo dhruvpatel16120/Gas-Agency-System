@@ -262,7 +262,7 @@ export default function BookingDetailsPage() {
     }
   };
 
-  const sendEmail = async (type: 'confirmation' | 'delivery' | 'reminder' | 'payment') => {
+  const sendEmail = async (type: 'confirmation' | 'delivery' | 'reminder' | 'payment' | 'invoice') => {
     setActionLoading('email');
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}/send-email`, {
@@ -527,6 +527,17 @@ export default function BookingDetailsPage() {
                     >
                       <X className="w-4 h-4" />
                       Cancel
+                    </button>
+                  )}
+                  
+                  {booking.status === 'DELIVERED' && (
+                    <button
+                      onClick={() => sendEmail('invoice')}
+                      disabled={actionLoading === 'email'}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      <Send className="w-4 h-4" />
+                      {actionLoading === 'email' ? 'Sending...' : 'Send Invoice'}
                     </button>
                   )}
                 </>
@@ -1012,6 +1023,20 @@ export default function BookingDetailsPage() {
                         <span>{actionLoading === 'invoice' ? 'Downloading...' : 'Download Invoice'}</span>
                       </div>
                     </button>
+
+                    {/* Send Invoice Email */}
+                    {booking.status === 'DELIVERED' && (
+                      <button
+                        onClick={() => sendEmail('invoice')}
+                        disabled={actionLoading === 'email'}
+                        className="w-full text-left p-3 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 text-blue-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Send className="w-4 h-4" />
+                          <span>{actionLoading === 'email' ? 'Sending...' : 'Send Invoice Email'}</span>
+                        </div>
+                      </button>
+                    )}
 
                     {/* Edit Booking */}
                     {booking.status !== 'CANCELLED' && (

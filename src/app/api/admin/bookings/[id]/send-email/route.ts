@@ -68,6 +68,11 @@ export async function POST(
         emailType = 'Payment Reminder';
         break;
 
+      case 'invoice':
+        emailSent = await sendInvoiceEmail(booking);
+        emailType = 'Invoice';
+        break;
+
       case 'cancellation':
         const { reason } = additionalData || {};
         emailSent = await sendCancellationEmail(booking, reason);
@@ -227,6 +232,42 @@ async function sendCancellationEmail(booking: any, reason?: string) {
       <p>If you have any questions about this cancellation, please contact our support team.</p>
       <p>We apologize for any inconvenience caused.</p>
       <p>Thank you for understanding.</p>
+    </div>
+  `;
+
+  return await sendEmail(booking.user.email, subject, html);
+}
+
+async function sendInvoiceEmail(booking: any) {
+  const subject = `Invoice - ${booking.id}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #059669;">Invoice</h2>
+      <p>Dear ${booking.user.name},</p>
+      <p>Please find attached the invoice for your gas cylinder delivery.</p>
+      
+      <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Invoice Details:</h3>
+        <p><strong>Invoice Number:</strong> ${booking.id}</p>
+        <p><strong>Booking ID:</strong> ${booking.id}</p>
+        <p><strong>Quantity:</strong> ${booking.quantity} cylinder(s)</p>
+        <p><strong>Unit Price:</strong> ₹1,100 per cylinder</p>
+        <p><strong>Total Amount:</strong> ₹${(booking.quantity * 1100).toLocaleString()}</p>
+        <p><strong>Payment Method:</strong> ${booking.paymentMethod}</p>
+        <p><strong>Payment Status:</strong> ${booking.payments[0]?.status || 'Pending'}</p>
+        <p><strong>Delivery Date:</strong> ${booking.deliveredAt ? new Date(booking.deliveredAt).toLocaleDateString() : 'Completed'}</p>
+      </div>
+
+      <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        <h3>Customer Details:</h3>
+        <p><strong>Name:</strong> ${booking.user.name}</p>
+        <p><strong>Email:</strong> ${booking.user.email}</p>
+        <p><strong>Phone:</strong> ${booking.user.phone}</p>
+        <p><strong>Address:</strong> ${booking.userAddress}</p>
+      </div>
+
+      <p>Thank you for choosing our service!</p>
+      <p>If you have any questions about this invoice, please contact our support team.</p>
     </div>
   `;
 
