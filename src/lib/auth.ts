@@ -18,47 +18,51 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        try {
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
-          });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email }
+        });
 
-          if (!user) {
-            return null;
-          }
-
-          const isValidPassword = await verifyPassword(
-            credentials.password,
-            user.password || ''
-          );
-
-          if (!isValidPassword) {
-            return null;
-          }
-
-          const isAdminAttempt = String(credentials.admin || '').toLowerCase() === 'true';
-
-          // If this is an admin login attempt, enforce admin role
-          if (isAdminAttempt && user.role !== 'ADMIN') {
-            throw new Error('Admin account required');
-          }
-
-          // For non-admin logins, enforce email verification
-          if (!isAdminAttempt && user.role !== 'ADMIN' && !user.emailVerified) {
-            throw new Error('Please verify your email address before logging in');
-          }
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            image: user.image || undefined,
-          };
-        } catch (error) {
-          console.error('Auth error:', error);
+        if (!user) {
           return null;
         }
+
+        const isValidPassword = await verifyPassword(
+          credentials.password,
+          user.password || ''
+        );
+
+        if (!isValidPassword) {
+          return null;
+        }
+
+        const isAdminAttempt = String(credentials.admin || '').toLowerCase() === 'true';
+
+        // If this is an admin login attempt, enforce admin role
+        if (isAdminAttempt && user.role !== 'ADMIN') {
+          throw new Error('Admin account required');
+        }
+
+        // If this is a user login attempt, block admin accounts from using it
+        if (!isAdminAttempt && user.role === 'ADMIN') {
+          throw new Error('Please use the admin login portal');
+        }
+
+        // Bypass email verification only when explicitly allowed
+        const bypassEmailVerification = process.env.BYPASS_EMAIL_VERIFICATION === 'true';
+
+        // For non-admin logins, enforce email verification unless bypassed
+        if (!isAdminAttempt && user.role !== 'ADMIN' && !user.emailVerified && !bypassEmailVerification) {
+          throw new Error('Please verify your email address before logging in');
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          image: user.image || undefined,
+          emailVerified: !!user.emailVerified,
+        };
       }
     })
   ],
@@ -71,6 +75,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        (token as unknown as { emailVerified?: boolean }).emailVerified = (user as unknown as { emailVerified?: boolean }).emailVerified === true;
       }
       return token;
     },
@@ -78,6 +83,7 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.id as string;
         session.user.role = token.role as UserRole;
+        (session.user as unknown as { emailVerified?: boolean }).emailVerified = (token as unknown as { emailVerified?: boolean }).emailVerified === true;
       }
       return session;
     },

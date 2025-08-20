@@ -6,8 +6,8 @@ import crypto from 'crypto';
 import { sendEmailVerification, sendPasswordResetEmail } from '@/lib/email';
 
 async function postActionHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
+  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
   if (!id) throw new NotFoundError('User ID is required');
 
   const { action } = await parseRequestBody<{ action: string }>(request);
@@ -20,7 +20,7 @@ async function postActionHandler(request: NextRequest, context?: Record<string, 
     const token = crypto.randomBytes(32).toString('hex');
     const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await prisma.user.update({ where: { id: user.id }, data: { emailVerificationToken: token, emailVerificationExpiry: expiry } });
-    void sendEmailVerification(user.email, user.name, token);
+    await sendEmailVerification(user.email, user.name, token);
     return successResponse(null, 'Verification email sent');
   }
 
@@ -28,7 +28,7 @@ async function postActionHandler(request: NextRequest, context?: Record<string, 
     const token = crypto.randomBytes(32).toString('hex');
     const expiry = new Date(Date.now() + 60 * 60 * 1000);
     await prisma.user.update({ where: { id: user.id }, data: { resetToken: token, resetTokenExpiry: expiry } });
-    void sendPasswordResetEmail(user.email, user.name, token);
+    await sendPasswordResetEmail(user.email, user.name, token);
     return successResponse(null, 'Password reset email sent');
   }
 

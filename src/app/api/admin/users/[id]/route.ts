@@ -5,8 +5,9 @@ import { NotFoundError, ConflictError } from '@/lib/error-handler';
 import { Prisma } from '@prisma/client';
 
 async function getUserHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  // Support App Router dynamic params (awaitable)
+  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
+  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
   if (!id) throw new NotFoundError('User ID is required');
 
   const user = await prisma.user.findUnique({
@@ -51,8 +52,8 @@ async function getUserHandler(_request: NextRequest, context?: Record<string, un
 }
 
 async function updateUserHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
+  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
   if (!id) throw new NotFoundError('User ID is required');
 
   const body = await parseRequestBody<Record<string, unknown>>(request);
@@ -91,8 +92,8 @@ async function updateUserHandler(request: NextRequest, context?: Record<string, 
 }
 
 async function deleteUserHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const { params } = (context || {}) as { params?: { id?: string } };
-  const id = params?.id;
+  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
+  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
   if (!id) throw new NotFoundError('User ID is required');
 
   const user = await prisma.user.findUnique({ where: { id }, select: { id: true } });

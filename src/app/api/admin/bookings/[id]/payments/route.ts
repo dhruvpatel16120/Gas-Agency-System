@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 // GET - Fetch payments for a specific booking
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const bookingId = params.id;
+    const { id: bookingId } = await params;
 
     // Get payments for the booking
     const payments = await prisma.payment.findMany({

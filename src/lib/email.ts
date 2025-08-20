@@ -1,15 +1,28 @@
 import nodemailer from 'nodemailer';
 import { EmailData, EmailTemplate } from '@/types';
 
-// Email configuration
+// Email configuration - supports both SMTP_* and EMAIL_SERVER_* env names
+const envHost = process.env.SMTP_HOST || process.env.EMAIL_SERVER_HOST || 'smtp.gmail.com';
+const envPortStr = process.env.SMTP_PORT || process.env.EMAIL_SERVER_PORT || '587';
+const envUser = process.env.SMTP_USER || process.env.EMAIL_SERVER_USER || '';
+const envPass = process.env.SMTP_PASS || process.env.EMAIL_SERVER_PASSWORD || '';
+const envFrom = process.env.SMTP_FROM || process.env.EMAIL_FROM || envUser;
+const hasSmtpCreds = Boolean(
+  (process.env.SMTP_USER && process.env.SMTP_PASS) ||
+  (process.env.EMAIL_SERVER_USER && process.env.EMAIL_SERVER_PASSWORD)
+);
+
+const resolvedPort = parseInt(envPortStr);
+const resolvedSecure = (process.env.SMTP_SECURE === 'true') || (process.env.EMAIL_SERVER_SECURE === 'true') || resolvedPort === 465;
+
 const emailConfig = {
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
+  host: envHost,
+  port: resolvedPort,
+  secure: resolvedSecure,
   auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
-  }
+    user: envUser,
+    pass: envPass,
+  },
 };
 
 // Create transporter
@@ -27,26 +40,52 @@ export const verifyEmailConnection = async () => {
   }
 };
 
-// Send email function
+// Send email function (supports both legacy object signature and positional args)
 export async function sendEmail(
-  to: string,
-  subject: string,
-  html: string,
-  text?: string
+  toOrData: string | { to: string; subject: string; html: string; text?: string },
+  subjectArg?: string,
+  htmlArg?: string,
+  textArg?: string
 ): Promise<boolean> {
   try {
+    let to: string;
+    let subject: string;
+    let html: string;
+    let text: string | undefined;
+
+    if (typeof toOrData === 'string') {
+      to = toOrData;
+      subject = subjectArg || '';
+      html = htmlArg || '';
+      text = textArg;
+    } else if (toOrData && typeof toOrData === 'object') {
+      to = toOrData.to;
+      subject = toOrData.subject;
+      html = toOrData.html;
+      text = toOrData.text;
+    } else {
+      console.error('sendEmail called with invalid arguments');
+      return false;
+    }
+
+    if (!to || !subject || !html) {
+      console.error('sendEmail missing required fields', { hasTo: !!to, hasSubject: !!subject, hasHtml: !!html });
+      return false;
+    }
+
     // If no SMTP credentials, log the email instead
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    if (!hasSmtpCreds) {
+      console.warn('SMTP credentials are not configured (set SMTP_USER/SMTP_PASS or EMAIL_SERVER_USER/EMAIL_SERVER_PASSWORD). Emails will not be delivered.');
       console.log('=== EMAIL WOULD BE SENT ===');
       console.log('To:', to);
       console.log('Subject:', subject);
-      console.log('HTML:', html);
+      console.log('HTML length:', html.length);
       console.log('===========================');
       return true; // Simulate success for development
     }
 
     const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: envFrom,
       to,
       subject,
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
@@ -637,7 +676,7 @@ export const sendContactFormToAdmin = async (
     message: string;
   }
 ): Promise<boolean> => {
-  const adminEmail = process.env.SUPPORT_EMAIL || process.env.EMAIL_SERVER_USER;
+  const adminEmail = process.env.SUPPORT_EMAIL || process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_SERVER_USER;
   if (!adminEmail) {
     console.error('No SUPPORT_EMAIL or EMAIL_SERVER_USER configured');
     return false;

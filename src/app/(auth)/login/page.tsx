@@ -55,6 +55,9 @@ export default function LoginPage() {
         if (result.error.includes('verify your email')) {
           setErrors({ email: 'Please verify your email address before logging in' });
           toast.error('Please verify your email address before logging in');
+        } else if (result.error.includes('Please use the admin login portal')) {
+          setErrors({ email: 'Admin accounts must use the admin portal' });
+          toast.error('Admin accounts must use the admin portal');
         } else if (result.error.includes('CredentialsSignin')) {
           setErrors({ password: 'Invalid email or password' });
           toast.error('Invalid email or password');

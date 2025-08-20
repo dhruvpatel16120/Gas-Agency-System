@@ -35,8 +35,19 @@ export default withAuth(
     }
 
     // Protect user routes
-    if (isUserPage && !isAuth) {
-      return NextResponse.redirect(new URL('/login', req.url));
+    if (isUserPage) {
+      if (!isAuth) {
+        return NextResponse.redirect(new URL('/login', req.url));
+      }
+      // Prevent admins from accessing user routes
+      if (token?.role === 'ADMIN') {
+        return NextResponse.redirect(new URL('/admin', req.url));
+      }
+      // Optionally enforce verified email at edge (defense-in-depth)
+      const emailVerified = (token as unknown as { emailVerified?: boolean })?.emailVerified;
+      if (emailVerified === false) {
+        return NextResponse.redirect(new URL('/login', req.url));
+      }
     }
 
     return null;

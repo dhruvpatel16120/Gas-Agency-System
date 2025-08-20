@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 // GET - Fetch individual booking
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const bookingId = params.id;
+    const { id: bookingId } = await params;
 
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
@@ -31,7 +31,8 @@ export async function GET(
         payments: {
           orderBy: { createdAt: 'desc' }
         },
-        deliveryAssignment: {
+        // Use correct relation name from Prisma schema
+        assignment: {
           include: {
             partner: {
               select: {
@@ -83,9 +84,8 @@ export async function GET(
       notes: booking.notes,
       paymentStatus: booking.payments[0]?.status || 'PENDING',
       paymentAmount: booking.payments[0]?.amount,
-      deliveryPartnerId: booking.deliveryAssignment?.partnerId,
-      deliveryPartnerName: booking.deliveryAssignment?.partner?.name,
-      cylinderReserved: booking.cylinderReserved,
+      deliveryPartnerId: booking.assignment?.partnerId,
+      deliveryPartnerName: booking.assignment?.partner?.name,
       createdAt: booking.createdAt,
       updatedAt: booking.updatedAt
     };
@@ -106,7 +106,7 @@ export async function GET(
 // PUT - Update booking
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -114,7 +114,7 @@ export async function PUT(
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
     }
 
-    const bookingId = params.id;
+    const { id: bookingId } = await params;
     const body = await request.json();
     const {
       quantity,
@@ -141,7 +141,7 @@ export async function PUT(
     }
 
     // Handle quantity changes
-    if (quantity && quantity !== currentBooking.quantity) {
+    if (typeof quantity === 'number' && quantity !== currentBooking.quantity) {
       const quantityDiff = quantity - currentBooking.quantity;
       
       // Check if user has enough quota for increase
@@ -202,17 +202,15 @@ export async function PUT(
 
       // Handle cancellation with reason
       if (status === 'CANCELLED' && body.cancellationReason) {
-        // Send cancellation email with reason
         console.log('Cancellation reason:', body.cancellationReason);
-        // This will be handled by the email service
       }
     }
 
     // Update payment amount if quantity changed
-    if (quantity && quantity !== currentBooking.quantity) {
+    if (typeof quantity === 'number' && quantity !== currentBooking.quantity) {
       await prisma.payment.updateMany({
         where: { bookingId: bookingId },
-        data: { amount: quantity * 1000 } // Assuming ₹1000 per cylinder
+        data: { amount: quantity * 1000 }
       });
     }
 

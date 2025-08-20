@@ -51,6 +51,10 @@ export default function AdminLoginPage() {
         if (result.error.includes('Admin account required')) {
           setErrors({ email: 'This account is not an admin' });
           toast.error('This account is not an admin');
+        } else if (result.error.includes('Please use the admin login portal')) {
+          // In case someone lands here with user-portal error message
+          setErrors({ email: 'Please sign in via the user portal' });
+          toast.error('Please sign in via the user portal');
         } else if (result.error.includes('CredentialsSignin')) {
           setErrors({ password: 'Invalid email or password' });
           toast.error('Invalid email or password');
