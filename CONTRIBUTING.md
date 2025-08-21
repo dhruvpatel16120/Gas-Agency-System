@@ -13,7 +13,7 @@ This guide will walk you through the process of contributing like a pro. Please 
 
 2. **Clone Your Fork**
    ```bash
-   git clone https://github.com/dhruvpatel16120/Gas-Agency-System.git
+   git clone https://github.com/your-username/Gas-Agency-System.git
    cd Gas-Agency-System
    ```
 
