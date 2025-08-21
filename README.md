@@ -122,8 +122,8 @@ Before you begin, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/gas-agency-system.git
-cd gas-agency-system
+git clone https://github.com/dhruvpatel16120/Gas-Agency-System.git
+cd Gas-Agency-System
 ```
 
 ### 2. Install Dependencies
@@ -142,7 +142,6 @@ This interactive script will help you configure:
 - Database connection (Railway PostgreSQL)
 - Email settings (Gmail SMTP)
 - NextAuth configuration
-- Application settings
 
 ### 4. Set Up Database
 
@@ -153,8 +152,6 @@ npm run db:generate
 # Run database migrations
 npm run db:migrate
 
-# (Optional) Seed sample data
-npm run db:seed
 ```
 
 ### 5. Create Admin Account
@@ -176,7 +173,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the application.
 ### Railway PostgreSQL Setup
 
 1. **Create Railway Account**
-   - Visit [railway.app](https://railway.app)
+   - Visit [railway.com](https://railway.com)
    - Sign up with GitHub or Google
 
 2. **Create New Project**
@@ -185,11 +182,12 @@ Visit [http://localhost:3000](http://localhost:3000) to see the application.
 
 3. **Get Connection String**
    - Go to your PostgreSQL database
-   - Click "Connect" → "PostgreSQL"
-   - Copy the connection string
+   - select & navigate to variables tab
+   - you got Service Variables
+   - Copy the DATABASE_PUBLIC_URL and comeback to project
 
 4. **Configure Environment**
-   - Update your `.env` file with the Railway connection string
+   - Update your `.env` file with the Railway connection string or paste it in setup 
    - Format: `postgresql://username:password@host:port/database`
 
 ### Database Migrations
@@ -234,14 +232,19 @@ ADMIN_SECRET_KEY="your-admin-secret-key"
 
 # Development Configuration
 NODE_ENV="development"
+
+
+# upi id for payment gatway
+ADMIN_UPI_ID="upi-id@opensource"
+NEXT_PUBLIC_ADMIN_UPI_ID="upi-id@opensource"
 ```
 
 ### Gmail App Password Setup
 
 1. Enable 2-Factor Authentication on your Gmail account
-2. Go to Google Account → Security → 2-Step Verification → App passwords
+2. Go to Google Account → Security → 2-Step Verification → App passwords or just search App passwords
 3. Generate a new app password for "Mail"
-4. Use this password in `EMAIL_SERVER_PASSWORD`
+4. Use this password in `EMAIL_SERVER_PASSWORD` and Use your gmail address as `EMAIL_SERVER_USER`
 
 ## 👥 Admin Management
 
