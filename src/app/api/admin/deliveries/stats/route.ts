@@ -1,8 +1,9 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, successResponse } from '@/lib/api-middleware';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import { withMiddleware, successResponse } from "@/lib/api-middleware";
 
-async function getDeliveryStatsHandler(request: NextRequest) {
+async function getDeliveryStatsHandler(_request: NextRequest) {
+  void _request;
   try {
     // Get current date and calculate date ranges
     const now = new Date();
@@ -10,83 +11,89 @@ async function getDeliveryStatsHandler(request: NextRequest) {
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // Get total deliveries count
-    const totalDeliveries = await (prisma as any).deliveryAssignment.count();
+    const totalDeliveries = await prisma.deliveryAssignment.count();
 
     // Get active deliveries (not delivered or failed)
-    const activeDeliveries = await (prisma as any).deliveryAssignment.count({
+    const activeDeliveries = await prisma.deliveryAssignment.count({
       where: {
         status: {
-          notIn: ['DELIVERED', 'FAILED']
-        }
-      }
+          notIn: ["DELIVERED", "FAILED"],
+        },
+      },
     });
 
     // Get completed deliveries today
-    const completedToday = await (prisma as any).deliveryAssignment.count({
+    const completedToday = await prisma.deliveryAssignment.count({
       where: {
-        status: 'DELIVERED',
+        status: "DELIVERED",
         updatedAt: {
-          gte: today
-        }
-      }
+          gte: today,
+        },
+      },
     });
 
     // Get pending assignments (bookings without delivery assignments)
-    const pendingAssignments = await (prisma as any).booking.count({
+    const pendingAssignments = await prisma.booking.count({
       where: {
-        status: 'APPROVED',
-        assignment: null
-      }
+        status: "APPROVED",
+        assignment: null,
+      },
     });
 
     // Get total and active partners
     const totalPartners = await prisma.deliveryPartner.count();
     const activePartners = await prisma.deliveryPartner.count({
       where: {
-        isActive: true
-      }
+        isActive: true,
+      },
     });
 
     // Calculate average delivery time (for completed deliveries)
-    const completedDeliveries = await (prisma as any).deliveryAssignment.findMany({
+    const completedDeliveries = await prisma.deliveryAssignment.findMany({
       where: {
-        status: 'DELIVERED',
+        status: "DELIVERED",
         updatedAt: {
-          gte: thirtyDaysAgo
-        }
+          gte: thirtyDaysAgo,
+        },
       },
       select: {
         assignedAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     let averageDeliveryTime = 0;
     if (completedDeliveries.length > 0) {
-      const totalTime = completedDeliveries.reduce((sum: number, delivery: any) => {
-        const assignedTime = new Date(delivery.assignedAt).getTime();
-        const completedTime = new Date(delivery.updatedAt).getTime();
-        return sum + (completedTime - assignedTime);
-      }, 0);
-      averageDeliveryTime = Math.round(totalTime / completedDeliveries.length / (1000 * 60 * 60)); // Convert to hours
+      const totalTime = completedDeliveries.reduce(
+        (sum: number, delivery) => {
+          const assignedTime = new Date(delivery.assignedAt).getTime();
+          const completedTime = new Date(delivery.updatedAt).getTime();
+          return sum + (completedTime - assignedTime);
+        },
+        0,
+      );
+      averageDeliveryTime = Math.round(
+        totalTime / completedDeliveries.length / (1000 * 60 * 60),
+      ); // Convert to hours
     }
 
     // Calculate success rate
-    const totalCompleted = await (prisma as any).deliveryAssignment.count({
+    const totalCompleted = await prisma.deliveryAssignment.count({
       where: {
-        status: 'DELIVERED'
-      }
+        status: "DELIVERED",
+      },
     });
 
-    const totalFailed = await (prisma as any).deliveryAssignment.count({
+    const totalFailed = await prisma.deliveryAssignment.count({
       where: {
-        status: 'FAILED'
-      }
+        status: "FAILED",
+      },
     });
 
-    const successRate = totalCompleted + totalFailed > 0 
-      ? Math.round((totalCompleted / (totalCompleted + totalFailed)) * 100)
-      : 0;
+    const successRate =
+      totalCompleted + totalFailed > 0
+        ? Math.round((totalCompleted / (totalCompleted + totalFailed)) * 100)
+        : 0;
 
     const stats = {
       totalDeliveries,
@@ -96,12 +103,12 @@ async function getDeliveryStatsHandler(request: NextRequest) {
       totalPartners,
       activePartners,
       averageDeliveryTime,
-      successRate
+      successRate,
     };
 
     return successResponse(stats);
   } catch (error) {
-    console.error('Error getting delivery stats:', error);
+    console.error("Error getting delivery stats:", error);
     return successResponse({
       totalDeliveries: 0,
       activeDeliveries: 0,
@@ -110,13 +117,13 @@ async function getDeliveryStatsHandler(request: NextRequest) {
       totalPartners: 0,
       activePartners: 0,
       averageDeliveryTime: 0,
-      successRate: 0
+      successRate: 0,
     });
   }
 }
 
-export const GET = withMiddleware(getDeliveryStatsHandler, { 
-  requireAuth: true, 
-  requireAdmin: true, 
-  validateContentType: false 
+export const GET = withMiddleware(getDeliveryStatsHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
 });

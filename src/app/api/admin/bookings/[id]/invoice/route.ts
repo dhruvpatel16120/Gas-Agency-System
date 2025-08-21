@@ -1,25 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import puppeteer from 'puppeteer';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import puppeteer from "puppeteer";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   let browser;
   let page;
 
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id: bookingId } = await params;
 
-    // Get comprehensive booking details
+    // Get comprehensive booking details with user data
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -28,28 +31,31 @@ export async function GET(
             name: true,
             email: true,
             phone: true,
-            address: true
-          }
+            address: true,
+          },
         },
         payments: {
-          orderBy: { createdAt: 'desc' },
-          take: 1
+          orderBy: { createdAt: "desc" },
+          take: 1,
         },
         assignment: {
           include: {
             partner: {
               select: {
                 name: true,
-                phone: true
-              }
-            }
-          }
-        }
-      }
+                phone: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!booking) {
-      return NextResponse.json({ success: false, message: 'Booking not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Booking not found" },
+        { status: 404 },
+      );
     }
 
     // Simple pricing structure - no GST or delivery charges
@@ -262,19 +268,19 @@ export async function GET(
               <h3>Bill To</h3>
               <div class="detail-row">
                 <span class="detail-label">Name:</span>
-                <span class="detail-value">${booking.userName}</span>
+                <span class="detail-value">${booking.user?.name || booking.userName || "N/A"}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Address:</span>
-                <span class="detail-value">${booking.userAddress}</span>
+                <span class="detail-value">${booking.user?.address || booking.userAddress || "N/A"}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Phone:</span>
-                <span class="detail-value">${booking.userPhone}</span>
+                <span class="detail-value">${booking.user?.phone || booking.userPhone || "N/A"}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Email:</span>
-                <span class="detail-value">${booking.userEmail}</span>
+                <span class="detail-value">${booking.user?.email || booking.userEmail || "N/A"}</span>
               </div>
             </div>
             
@@ -286,15 +292,15 @@ export async function GET(
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${new Date().toLocaleDateString('en-IN')}</span>
+                <span class="detail-value">${new Date().toLocaleDateString("en-IN")}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Due Date:</span>
-                <span class="detail-value">${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-IN')}</span>
+                <span class="detail-value">${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-IN")}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Status:</span>
-                <span class="detail-value"><span class="status-badge">${booking.status.replace('_', ' ')}</span></span>
+                <span class="detail-value"><span class="status-badge">${booking.status.replace("_", " ")}</span></span>
               </div>
             </div>
           </div>
@@ -312,8 +318,8 @@ export async function GET(
               <tr>
                 <td class="item-description">Gas Cylinder (14.2 kg)</td>
                 <td class="item-quantity">${booking.quantity}</td>
-                <td class="item-price">₹${pricePerCylinder.toLocaleString('en-IN')}</td>
-                <td class="item-amount">₹${subtotal.toLocaleString('en-IN')}</td>
+                <td class="item-price">₹${pricePerCylinder.toLocaleString("en-IN")}</td>
+                <td class="item-amount">₹${subtotal.toLocaleString("en-IN")}</td>
               </tr>
             </tbody>
           </table>
@@ -321,14 +327,14 @@ export async function GET(
           <div class="totals-section">
             <div class="total-row">
               <span class="total-label">Total Amount:</span>
-              <span class="total-value grand-total">₹${total.toLocaleString('en-IN')}</span>
+              <span class="total-value grand-total">₹${total.toLocaleString("en-IN")}</span>
             </div>
           </div>
           
           <div class="footer">
             <p>Thank you for your business!</p>
             <p>This is a computer-generated invoice and does not require a physical signature.</p>
-            <p>Generated on ${new Date().toLocaleString('en-IN')}</p>
+            <p>Generated on ${new Date().toLocaleString("en-IN")}</p>
           </div>
         </div>
       </body>
@@ -339,74 +345,78 @@ export async function GET(
     browser = await puppeteer.launch({
       headless: true,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--disable-web-security'
-      ]
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--disable-web-security",
+      ],
     });
 
     // Create new page
     page = await browser.newPage();
-    
+
     // Set viewport to A4 size
     await page.setViewport({ width: 794, height: 1123 }); // A4 dimensions in pixels
-    
+
     // Set content and wait for it to load
-    await page.setContent(invoiceHtml, { 
-      waitUntil: 'domcontentloaded' 
+    await page.setContent(invoiceHtml, {
+      waitUntil: "domcontentloaded",
     });
 
     // Simple wait for rendering
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     // Check if page is still valid
     if (!page || page.isClosed()) {
-      throw new Error('Page is closed or invalid');
+      throw new Error("Page is closed or invalid");
     }
-    
-    console.log('Page content loaded, generating PDF...');
+
+    console.log("Page content loaded, generating PDF...");
 
     // Generate PDF with A4 size and no margins
-    console.log('Starting PDF generation...');
+    console.log("Starting PDF generation...");
     let pdfBuffer;
     try {
       pdfBuffer = await page.pdf({
-        format: 'A4',
+        format: "A4",
         printBackground: true,
         margin: {
-          top: '0mm',
-          right: '0mm',
-          bottom: '0mm',
-          left: '0mm'
-        }
+          top: "0mm",
+          right: "0mm",
+          bottom: "0mm",
+          left: "0mm",
+        },
       });
-      console.log('PDF generated successfully, size:', pdfBuffer.length);
+      console.log("PDF generated successfully, size:", pdfBuffer.length);
     } catch (pdfError) {
-      console.error('PDF generation failed:', pdfError);
-      throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`);
+      console.error("PDF generation failed:", pdfError);
+      throw new Error(
+        `PDF generation failed: ${pdfError instanceof Error ? pdfError.message : "Unknown error"}`,
+      );
     }
 
     // Set proper headers for PDF download
-    const response = new NextResponse(pdfBuffer);
-    response.headers.set('Content-Type', 'application/pdf');
-    response.headers.set('Content-Disposition', `attachment; filename="invoice-${booking.id.slice(-8).toUpperCase()}.pdf"`);
-    response.headers.set('Content-Length', pdfBuffer.length.toString());
-    
-    return response;
+    const response = new NextResponse(pdfBuffer as unknown as BodyInit);
+    response.headers.set("Content-Type", "application/pdf");
+    response.headers.set(
+      "Content-Disposition",
+      `attachment; filename="invoice-${booking.id.slice(-8).toUpperCase()}.pdf"`,
+    );
+    response.headers.set("Content-Length", pdfBuffer.length.toString());
 
+    return response;
   } catch (error) {
-    console.error('Failed to generate PDF invoice:', error);
-    console.error('Error details:', {
-      name: error instanceof Error ? error.name : 'Unknown',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : 'No stack trace'
+    console.error("Failed to generate PDF invoice:", error);
+    console.error("Error details:", {
+      name: error instanceof Error ? error.name : "Unknown",
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : "No stack trace",
     });
     return NextResponse.json(
-      { success: false, message: 'Failed to generate invoice PDF' },
-      { status: 500 }
+      { success: false, message: "Failed to generate invoice PDF" },
+      { status: 500 },
     );
   } finally {
     // Proper cleanup with error handling
@@ -414,14 +424,14 @@ export async function GET(
       try {
         await page.close();
       } catch (e) {
-        console.error('Error closing page:', e);
+        console.error("Error closing page:", e);
       }
     }
     if (browser) {
       try {
         await browser.close();
       } catch (e) {
-        console.error('Error closing browser:', e);
+        console.error("Error closing browser:", e);
       }
     }
   }

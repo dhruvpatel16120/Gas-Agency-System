@@ -1,4 +1,10 @@
-import { User, Booking, UserRole, PaymentMethod, BookingStatus } from '@prisma/client';
+import {
+  User,
+  Booking,
+  UserRole,
+  PaymentMethod,
+  BookingStatus,
+} from "@prisma/client";
 
 // User Types
 export type UserWithRelations = User & {
@@ -15,7 +21,7 @@ export type CreateUserInput = {
   role?: UserRole;
 };
 
-export type UpdateUserInput = Partial<Omit<CreateUserInput, 'password'>>;
+export type UpdateUserInput = Partial<Omit<CreateUserInput, "password">>;
 
 // Booking Types
 export type CreateBookingInput = {
@@ -132,7 +138,7 @@ export type PaginationParams = {
   page: number;
   limit: number;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 };
 
 export type PaginatedResponse<T> = {
@@ -150,12 +156,12 @@ export type PaginatedResponse<T> = {
 // Component Props Types
 export type ButtonProps = {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger' | 'success';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "danger" | "success";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   loading?: boolean;
   onClick?: () => void;
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
   className?: string;
 };
 
@@ -184,6 +190,6 @@ export type StatusBadgeProps = {
   className?: string;
 };
 
-export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+export type LoadingState = "idle" | "loading" | "success" | "error";
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = "success" | "error" | "warning" | "info";

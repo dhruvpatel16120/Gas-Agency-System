@@ -1,14 +1,15 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, successResponse } from '@/lib/api-middleware';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import { withMiddleware, successResponse } from "@/lib/api-middleware";
 
-async function getRecentDeliveriesHandler(request: NextRequest) {
+async function getRecentDeliveriesHandler(_request: NextRequest) {
+  void _request;
   try {
     // Get recent deliveries with customer and partner information
-    const recentDeliveries = await (prisma as any).deliveryAssignment.findMany({
+    const recentDeliveries = await prisma.deliveryAssignment.findMany({
       take: 10,
       orderBy: {
-        assignedAt: 'desc'
+        assignedAt: "desc",
       },
       include: {
         booking: {
@@ -18,20 +19,20 @@ async function getRecentDeliveriesHandler(request: NextRequest) {
             userEmail: true,
             userAddress: true,
             quantity: true,
-            deliveryDate: true
-          }
+            deliveryDate: true,
+          },
         },
         partner: {
           select: {
             name: true,
-            phone: true
-          }
-        }
-      }
+            phone: true,
+          },
+        },
+      },
     });
 
     // Transform the data to match the expected format
-    const transformedDeliveries = recentDeliveries.map((delivery: any) => ({
+    const transformedDeliveries = recentDeliveries.map((delivery) => ({
       id: delivery.id,
       bookingId: delivery.bookingId,
       customerName: delivery.booking.userName,
@@ -41,23 +42,26 @@ async function getRecentDeliveriesHandler(request: NextRequest) {
       quantity: delivery.booking.quantity,
       status: delivery.status,
       partnerId: delivery.partnerId,
-      partnerName: delivery.partner?.name || 'Unassigned',
-      partnerPhone: delivery.partner?.phone || '',
+      partnerName: delivery.partner?.name || "Unassigned",
+      partnerPhone: delivery.partner?.phone || "",
       assignedAt: delivery.assignedAt,
-      expectedDelivery: delivery.scheduledDate || delivery.booking.deliveryDate || delivery.assignedAt,
+      expectedDelivery:
+        delivery.scheduledDate ||
+        delivery.booking.deliveryDate ||
+        delivery.assignedAt,
       notes: delivery.notes,
-      priority: delivery.priority || 'MEDIUM'
+      priority: delivery.priority || "MEDIUM",
     }));
 
     return successResponse(transformedDeliveries);
   } catch (error) {
-    console.error('Error getting recent deliveries:', error);
+    console.error("Error getting recent deliveries:", error);
     return successResponse([]);
   }
 }
 
-export const GET = withMiddleware(getRecentDeliveriesHandler, { 
-  requireAuth: true, 
-  requireAdmin: true, 
-  validateContentType: false 
+export const GET = withMiddleware(getRecentDeliveriesHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
 });

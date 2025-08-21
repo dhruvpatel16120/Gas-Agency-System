@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import UserNavbar from '@/components/UserNavbar';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import QRCode from 'qrcode';
-import { toast } from 'react-hot-toast';
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import UserNavbar from "@/components/UserNavbar";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import QRCode from "qrcode";
+import { toast } from "react-hot-toast";
 
 export default function PrePaymentUPIPage() {
   const { data: session, status } = useSession();
@@ -18,19 +19,18 @@ export default function PrePaymentUPIPage() {
   const [quotaLoading, setQuotaLoading] = useState(true);
 
   // Form data from query params
-  const quantity = parseInt(searchParams.get('quantity') || '1', 10);
-  const receiverName = searchParams.get('receiverName') || '';
-  const receiverPhone = searchParams.get('receiverPhone') || '';
-  const expectedDate = searchParams.get('expectedDate') || '';
-  const notes = searchParams.get('notes') || '';
+  const quantity = parseInt(searchParams.get("quantity") || "1", 10);
+  const receiverName = searchParams.get("receiverName") || "";
+  const receiverPhone = searchParams.get("receiverPhone") || "";
+  const expectedDate = searchParams.get("expectedDate") || "";
+  const notes = searchParams.get("notes") || "";
 
-  const [txnId, setTxnId] = useState('');
+  const [txnId, setTxnId] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [upiUrl, setUpiUrl] = useState('');
-  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [adminUpiId, setAdminUpiId] = useState<string | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
-  
+
   const isTxnValid = useMemo(() => {
     const refRe = /^[A-Za-z0-9\-_.]{6,}$/;
     const upiRe = /^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{2,64}$/;
@@ -39,26 +39,26 @@ export default function PrePaymentUPIPage() {
   }, [txnId]);
 
   useEffect(() => {
-    if (status === 'loading') return;
+    if (status === "loading") return;
     if (!session) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
-    
+
     // Load settings and check quota
     const loadData = async () => {
       try {
         // Load settings (including UPI ID)
-        const settingsRes = await fetch('/api/settings');
+        const settingsRes = await fetch("/api/settings");
         if (settingsRes.ok) {
           const settingsJson = await settingsRes.json();
           if (settingsJson.success) {
             setAdminUpiId(settingsJson.data.adminUpiId);
           }
         }
-        
+
         // Check quota
-        const quotaRes = await fetch('/api/user/profile');
+        const quotaRes = await fetch("/api/user/profile");
         if (quotaRes.ok) {
           const quotaJson = await quotaRes.json();
           const data = quotaJson.data || {};
@@ -81,16 +81,18 @@ export default function PrePaymentUPIPage() {
   useEffect(() => {
     const build = async () => {
       if (!adminUpiId) return;
-      const payeeName = encodeURIComponent('Gas Agency');
+      const payeeName = encodeURIComponent("Gas Agency");
       const txnNote = encodeURIComponent(`Pre-Booking`);
       const url = `upi://pay?pa=${encodeURIComponent(adminUpiId)}&pn=${payeeName}&am=${total.toFixed(2)}&cu=INR&tn=${txnNote}`;
-      setUpiUrl(url);
       try {
-        const data = await QRCode.toDataURL(url, { width: 220, margin: 0, errorCorrectionLevel: 'M' });
+        const data = await QRCode.toDataURL(url, {
+          width: 220,
+          margin: 0,
+          errorCorrectionLevel: "M",
+        });
         setQrDataUrl(data);
       } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('QR generation failed', e);
+        console.error("QR generation failed", e);
       }
     };
     void build();
@@ -98,7 +100,7 @@ export default function PrePaymentUPIPage() {
 
   const submitWithPayment = async () => {
     if (!txnId.trim()) {
-      toast.error('Please enter your UPI transaction/reference ID');
+      toast.error("Please enter your UPI transaction/reference ID");
       return;
     }
     {
@@ -106,16 +108,16 @@ export default function PrePaymentUPIPage() {
       const refRe = /^[A-Za-z0-9\-_.]{6,}$/;
       const upiRe = /^[a-zA-Z0-9._\-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{2,64}$/;
       if (!(refRe.test(v) || upiRe.test(v))) {
-        toast.error('Enter a valid UPI ID or reference ID');
+        toast.error("Enter a valid UPI ID or reference ID");
         return;
       }
     }
     setSubmitting(true);
     try {
       // Server will atomically create booking and success payment
-      const res = await fetch('/api/payments/upi/confirm-and-create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/payments/upi/confirm-and-create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quantity,
           receiverName,
@@ -126,19 +128,21 @@ export default function PrePaymentUPIPage() {
         }),
       });
       const json = await res.json();
-      if (!json.success || !json?.data?.bookingId) throw new Error(json.message || 'Failed to process payment');
-      toast.success('Payment confirmed! Creating your booking...');
+      if (!json.success || !json?.data?.bookingId)
+        throw new Error(json.message || "Failed to process payment");
+      toast.success("Payment confirmed! Creating your booking...");
       router.push(`/user/booked?id=${encodeURIComponent(json.data.bookingId)}`);
     } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('Pre-payment submit error', e);
-      toast.error('Payment confirmation failed. Please try again or contact support.');
+      console.error("Pre-payment submit error", e);
+      toast.error(
+        "Payment confirmation failed. Please try again or contact support.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (status === 'loading' || loading || quotaLoading || settingsLoading) {
+  if (status === "loading" || loading || quotaLoading || settingsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -157,23 +161,39 @@ export default function PrePaymentUPIPage() {
         <main className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
-              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="h-8 w-8 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Yearly Booking Limit Reached</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Yearly Booking Limit Reached
+            </h1>
             <p className="text-lg text-gray-600 mb-8">
-              We cannot accept new bookings from you at this time. Your yearly quota of gas cylinders has been exhausted.
+              We cannot accept new bookings from you at this time. Your yearly
+              quota of gas cylinders has been exhausted.
             </p>
             <div className="space-y-4">
               <button
-                onClick={() => router.push('/user')}
+                onClick={() => router.push("/user")}
                 className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Go to Dashboard
               </button>
               <div className="text-sm text-gray-500">
-                <p>You can still track your existing bookings and manage your account.</p>
+                <p>
+                  You can still track your existing bookings and manage your
+                  account.
+                </p>
                 <p>Contact support if you believe this is an error.</p>
               </div>
             </div>
@@ -191,23 +211,39 @@ export default function PrePaymentUPIPage() {
         <main className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-6">
-              <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <svg
+                className="h-8 w-8 text-yellow-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Insufficient Quota</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Insufficient Quota
+            </h1>
             <p className="text-lg text-gray-600 mb-8">
-              You requested {quantity} cylinder(s) but only have {remainingQuota} remaining in your yearly quota.
+              You requested {quantity} cylinder(s) but only have{" "}
+              {remainingQuota} remaining in your yearly quota.
             </p>
             <div className="space-y-4">
               <button
-                onClick={() => router.push('/user/book')}
+                onClick={() => router.push("/user/book")}
                 className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Adjust Quantity
               </button>
               <div className="text-sm text-gray-500">
-                <p>Please reduce your quantity or contact support if you need assistance.</p>
+                <p>
+                  Please reduce your quantity or contact support if you need
+                  assistance.
+                </p>
               </div>
             </div>
           </div>
@@ -226,19 +262,28 @@ export default function PrePaymentUPIPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Your Gas Cylinder Quota</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Your Gas Cylinder Quota
+                  </h2>
                   <p className="text-sm text-gray-600">
-                    You have <span className="font-semibold text-blue-600">{remainingQuota}</span> cylinder(s) remaining this year
+                    You have{" "}
+                    <span className="font-semibold text-blue-600">
+                      {remainingQuota}
+                    </span>{" "}
+                    cylinder(s) remaining this year
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-blue-600">{remainingQuota}</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {remainingQuota}
+                  </div>
                   <div className="text-xs text-gray-500">Remaining</div>
                 </div>
               </div>
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  📋 Booking {quantity} cylinder(s) will use {quantity} of your remaining quota.
+                  📋 Booking {quantity} cylinder(s) will use {quantity} of your
+                  remaining quota.
                 </p>
               </div>
             </CardContent>
@@ -256,45 +301,83 @@ export default function PrePaymentUPIPage() {
                   <li>Scan the QR or tap the button to open your UPI app.</li>
                   <li>Verify the UPI ID matches ours exactly.</li>
                   <li>Pay the exact amount shown below.</li>
-                  <li>After successful payment, enter your UPI Transaction/Reference ID and continue.</li>
+                  <li>
+                    After successful payment, enter your UPI
+                    Transaction/Reference ID and continue.
+                  </li>
                 </ul>
-                <p className="mt-3">If you completed payment but didn't receive a booking email, or your status has not updated, contact us through the Contact Us form. Our team will reach you within 24 hours.</p>
+                <p className="mt-3">
+                  If you completed payment but didn&apos;t receive a booking email,
+                  or your status has not updated, contact us through the Contact
+                  Us form. Our team will reach you within 24 hours.
+                </p>
               </div>
               <div className="rounded-lg border border-gray-200 bg-white p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Order Summary</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Order Summary
+                </h3>
                 <p className="text-sm text-gray-700">Quantity: {quantity}</p>
-                <p className="text-sm text-gray-700">Unit Price: ₹{unitPrice}</p>
-                <p className="text-sm font-semibold text-gray-900">Total: ₹{total}</p>
+                <p className="text-sm text-gray-700">
+                  Unit Price: ₹{unitPrice}
+                </p>
+                <p className="text-sm font-semibold text-gray-900">
+                  Total: ₹{total}
+                </p>
               </div>
 
               <div className="rounded-lg border border-gray-200 bg-white p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Scan to Pay</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Scan to Pay
+                </h3>
                 {!adminUpiId ? (
                   <div className="text-center py-8">
-                    <div className="text-red-600 mb-2">⚠️ UPI ID not configured</div>
-                    <p className="text-sm text-gray-600">Please contact support to configure the UPI payment system.</p>
+                    <div className="text-red-600 mb-2">
+                      ⚠️ UPI ID not configured
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Please contact support to configure the UPI payment
+                      system.
+                    </p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-6">
                     {qrDataUrl ? (
-                      <img src={qrDataUrl} alt="UPI QR" className="w-48 h-48 rounded-md border" />
+                      <Image
+                        src={qrDataUrl}
+                        alt="UPI QR"
+                        width={192}
+                        height={192}
+                        className="w-48 h-48 rounded-md border"
+                      />
                     ) : (
                       <div className="w-48 h-48 rounded-md border flex items-center justify-center text-gray-500 text-sm">
                         QR unavailable
                       </div>
                     )}
                     <div className="text-sm text-gray-700">
-                      <p><span className="text-gray-500">UPI ID:</span> {adminUpiId}</p>
-                      <p><span className="text-gray-500">Amount:</span> ₹{total.toFixed(2)}</p>
+                      <p>
+                        <span className="text-gray-500">UPI ID:</span>{" "}
+                        {adminUpiId}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Amount:</span> ₹
+                        {total.toFixed(2)}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="rounded-lg border border-gray-200 bg-white p-4">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Enter UPI Transaction ID</h3>
-                <p className="text-xs text-red-600 mb-2">Please enter the real and correct UPI reference ID. Kindly make payment only to the UPI ID shown above. Otherwise, your booking will be cancelled and no refund will be provided.</p>
-                <form 
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Enter UPI Transaction ID
+                </h3>
+                <p className="text-xs text-red-600 mb-2">
+                  Please enter the real and correct UPI reference ID. Kindly
+                  make payment only to the UPI ID shown above. Otherwise, your
+                  booking will be cancelled and no refund will be provided.
+                </p>
+                <form
                   onSubmit={(e) => {
                     e.preventDefault();
                     if (isTxnValid && !submitting && adminUpiId) {
@@ -322,12 +405,15 @@ export default function PrePaymentUPIPage() {
                         Processing...
                       </>
                     ) : (
-                      'Continue'
+                      "Continue"
                     )}
                   </button>
                 </form>
                 {txnId && !isTxnValid && (
-                  <p className="mt-2 text-xs text-red-600">Enter a valid UPI ID (name@bank) or reference ID (min 6 chars; letters, numbers, - _ .).</p>
+                  <p className="mt-2 text-xs text-red-600">
+                    Enter a valid UPI ID (name@bank) or reference ID (min 6
+                    chars; letters, numbers, - _ .).
+                  </p>
                 )}
               </div>
             </CardContent>
@@ -337,5 +423,3 @@ export default function PrePaymentUPIPage() {
     </div>
   );
 }
-
-

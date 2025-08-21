@@ -1,15 +1,16 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, successResponse } from '@/lib/api-middleware';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import { withMiddleware, successResponse } from "@/lib/api-middleware";
 
-async function getActiveDeliveriesHandler(request: NextRequest) {
+async function getActiveDeliveriesHandler(_request: NextRequest) {
+  void _request;
   try {
     // Get all active deliveries (not delivered or failed)
-    const activeDeliveries = await (prisma as any).deliveryAssignment.findMany({
+    const activeDeliveries = await prisma.deliveryAssignment.findMany({
       where: {
         status: {
-          notIn: ['DELIVERED', 'FAILED']
-        }
+          notIn: ["DELIVERED", "FAILED"],
+        },
       },
       include: {
         booking: {
@@ -19,23 +20,23 @@ async function getActiveDeliveriesHandler(request: NextRequest) {
             userEmail: true,
             userAddress: true,
             quantity: true,
-            deliveryDate: true
-          }
+            deliveryDate: true,
+          },
         },
         partner: {
           select: {
             name: true,
-            phone: true
-          }
-        }
+            phone: true,
+          },
+        },
       },
       orderBy: {
-        assignedAt: 'asc'
-      }
+        assignedAt: "asc",
+      },
     });
 
     // Transform the data to match the expected format
-    const transformedDeliveries = activeDeliveries.map((delivery: any) => ({
+    const transformedDeliveries = activeDeliveries.map((delivery) => ({
       id: delivery.id,
       bookingId: delivery.bookingId,
       customerName: delivery.booking.userName,
@@ -45,23 +46,26 @@ async function getActiveDeliveriesHandler(request: NextRequest) {
       quantity: delivery.booking.quantity,
       status: delivery.status,
       partnerId: delivery.partnerId,
-      partnerName: delivery.partner?.name || 'Unassigned',
-      partnerPhone: delivery.partner?.phone || '',
+      partnerName: delivery.partner?.name || "Unassigned",
+      partnerPhone: delivery.partner?.phone || "",
       assignedAt: delivery.assignedAt,
-      expectedDelivery: delivery.scheduledDate || delivery.booking.deliveryDate || delivery.assignedAt,
+      expectedDelivery:
+        delivery.scheduledDate ||
+        delivery.booking.deliveryDate ||
+        delivery.assignedAt,
       notes: delivery.notes,
-      priority: delivery.priority || 'MEDIUM'
+      priority: delivery.priority || "MEDIUM",
     }));
 
     return successResponse(transformedDeliveries);
   } catch (error) {
-    console.error('Error getting active deliveries:', error);
+    console.error("Error getting active deliveries:", error);
     return successResponse([]);
   }
 }
 
-export const GET = withMiddleware(getActiveDeliveriesHandler, { 
-  requireAuth: true, 
-  requireAdmin: true, 
-  validateContentType: false 
+export const GET = withMiddleware(getActiveDeliveriesHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
 });

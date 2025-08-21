@@ -1,41 +1,60 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import { sendDeliveryStatusEmail } from '@/lib/email';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { sendDeliveryStatusEmail } from "@/lib/email";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id: bookingId } = await params;
     const body = await request.json();
     const { newStatus, notes } = body;
 
-    if (!newStatus || !['ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED'].includes(newStatus)) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Invalid status. Must be ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, or FAILED' 
-      }, { status: 400 });
+    if (
+      !newStatus ||
+      ![
+        "ASSIGNED",
+        "PICKED_UP",
+        "OUT_FOR_DELIVERY",
+        "DELIVERED",
+        "FAILED",
+      ].includes(newStatus)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid status. Must be ASSIGNED, PICKED_UP, OUT_FOR_DELIVERY, DELIVERED, or FAILED",
+        },
+        { status: 400 },
+      );
     }
 
     // Check if delivery assignment exists
     const deliveryAssignment = await prisma.deliveryAssignment.findUnique({
       where: { bookingId },
-      include: { booking: true }
+      include: { booking: true },
     });
 
     if (!deliveryAssignment) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Delivery assignment not found' 
-      }, { status: 404 });
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Delivery assignment not found",
+        },
+        { status: 404 },
+      );
     }
 
     // Update delivery assignment status
@@ -43,25 +62,25 @@ export async function PUT(
       where: { bookingId },
       data: {
         status: newStatus,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     // Update booking status based on delivery status
     let newBookingStatus = deliveryAssignment.booking.status;
-    
-    if (newStatus === 'PICKED_UP') {
+
+    if (newStatus === "PICKED_UP") {
       // When picked up, keep booking as APPROVED
-      newBookingStatus = 'APPROVED';
-    } else if (newStatus === 'OUT_FOR_DELIVERY') {
+      newBookingStatus = "APPROVED";
+    } else if (newStatus === "OUT_FOR_DELIVERY") {
       // When out for delivery, change booking status to OUT_FOR_DELIVERY
-      newBookingStatus = 'OUT_FOR_DELIVERY';
-    } else if (newStatus === 'DELIVERED') {
+      newBookingStatus = "OUT_FOR_DELIVERY";
+    } else if (newStatus === "DELIVERED") {
       // When delivered, change booking status to DELIVERED
-      newBookingStatus = 'DELIVERED';
-    } else if (newStatus === 'FAILED') {
+      newBookingStatus = "DELIVERED";
+    } else if (newStatus === "FAILED") {
       // When failed, change booking status to CANCELLED
-      newBookingStatus = 'CANCELLED';
+      newBookingStatus = "CANCELLED";
     }
 
     // Only update booking status if it's different
@@ -70,8 +89,8 @@ export async function PUT(
         where: { id: bookingId },
         data: {
           status: newBookingStatus,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       // Create booking event for status change
@@ -79,9 +98,9 @@ export async function PUT(
         data: {
           bookingId,
           status: newBookingStatus,
-          title: `Delivery ${newStatus.toLowerCase().replace('_', ' ')}`,
-          description: `Delivery status updated to ${newStatus}. Booking status changed to ${newBookingStatus}.`
-        }
+          title: `Delivery ${newStatus.toLowerCase().replace("_", " ")}`,
+          description: `Delivery status updated to ${newStatus}. Booking status changed to ${newBookingStatus}.`,
+        },
       });
     } else {
       // Create booking event for delivery status update (no booking status change)
@@ -89,9 +108,9 @@ export async function PUT(
         data: {
           bookingId,
           status: deliveryAssignment.booking.status,
-          title: `Delivery ${newStatus.toLowerCase().replace('_', ' ')}`,
-          description: `Delivery status updated to ${newStatus}.`
-        }
+          title: `Delivery ${newStatus.toLowerCase().replace("_", " ")}`,
+          description: `Delivery status updated to ${newStatus}.`,
+        },
       });
     }
 
@@ -103,29 +122,29 @@ export async function PUT(
           deliveryAssignment.booking.userName,
           bookingId,
           newStatus,
-          notes || `Your delivery status has been updated to ${newStatus.toLowerCase().replace('_', ' ')}.`
+          notes ||
+            `Your delivery status has been updated to ${newStatus.toLowerCase().replace("_", " ")}.`,
         );
       }
     } catch (emailError) {
-      console.error('Failed to send delivery status email:', emailError);
+      console.error("Failed to send delivery status email:", emailError);
       // Don't fail the request if email fails
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Delivery status updated successfully',
+      message: "Delivery status updated successfully",
       data: {
         id: deliveryAssignment.id,
         status: newStatus,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
-
   } catch (error) {
-    console.error('Failed to update delivery status:', error);
+    console.error("Failed to update delivery status:", error);
     return NextResponse.json(
-      { success: false, message: 'Failed to update delivery status' },
-      { status: 500 }
+      { success: false, message: "Failed to update delivery status" },
+      { status: 500 },
     );
   }
 }

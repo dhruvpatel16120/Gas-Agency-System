@@ -1,17 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import Link from 'next/link';
-import { 
-  Users, 
-  ArrowLeft,
-  Save,
-  Trash2
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import Link from "next/link";
+import { Users, ArrowLeft, Save, Trash2 } from "lucide-react";
 
 type Partner = {
   id: string;
@@ -34,31 +29,35 @@ export default function EditPartnerPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
-    else if (session.user.role !== 'ADMIN') router.push('/user');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
+    else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
-  useEffect(() => {
-    if (session?.user?.role === 'ADMIN' && id) {
-      loadPartner();
-    }
-  }, [session, id]);
-
-  const loadPartner = async () => {
+  const loadPartner = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/deliveries/partners/${id}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/deliveries/partners/${id}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setPartner(data.data);
       }
     } catch (error) {
-      console.error('Error loading partner:', error);
+      console.error("Error loading partner:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN" && id) {
+      void loadPartner();
+    }
+  }, [session, id, loadPartner]);
+
+  
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -68,61 +67,66 @@ export default function EditPartnerPage() {
     try {
       const formData = new FormData(e.currentTarget);
       const payload = {
-        name: formData.get('name') as string,
-        phone: formData.get('phone') as string,
-        email: formData.get('email') as string || undefined,
-        vehicleNumber: formData.get('vehicleNumber') as string || undefined,
-        serviceArea: formData.get('serviceArea') as string || undefined,
-        capacityPerDay: parseInt(formData.get('capacityPerDay') as string) || 20,
-        isActive: formData.get('isActive') === 'on',
+        name: formData.get("name") as string,
+        phone: formData.get("phone") as string,
+        email: (formData.get("email") as string) || undefined,
+        vehicleNumber: (formData.get("vehicleNumber") as string) || undefined,
+        serviceArea: (formData.get("serviceArea") as string) || undefined,
+        capacityPerDay:
+          parseInt(formData.get("capacityPerDay") as string) || 20,
+        isActive: formData.get("isActive") === "on",
       };
 
       const res = await fetch(`/api/admin/deliveries/partners/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        alert('Partner updated successfully!');
+        alert("Partner updated successfully!");
         router.push(`/admin/deliveries/partners/${id}`);
       } else {
         const errorData = await res.json();
-        setError(errorData.message || 'Failed to update partner');
+        setError(errorData.message || "Failed to update partner");
       }
     } catch (error) {
-      console.error('Error updating partner:', error);
-      setError('An error occurred while updating the partner');
+      console.error("Error updating partner:", error);
+      setError("An error occurred while updating the partner");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this partner? This action cannot be undone.')) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this partner? This action cannot be undone.",
+      )
+    ) {
       return;
     }
 
     try {
       const res = await fetch(`/api/admin/deliveries/partners/${id}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
 
       if (res.ok) {
-        alert('Partner deleted successfully!');
-        router.push('/admin/deliveries/partners');
+        alert("Partner deleted successfully!");
+        router.push("/admin/deliveries/partners");
       } else {
         const errorData = await res.json();
-        alert(errorData.message || 'Failed to delete partner');
+        alert(errorData.message || "Failed to delete partner");
       }
     } catch (error) {
-      console.error('Error deleting partner:', error);
-      alert('An error occurred while deleting the partner');
+      console.error("Error deleting partner:", error);
+      alert("An error occurred while deleting the partner");
     }
   };
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,8 +144,12 @@ export default function EditPartnerPage() {
                 Back to Partner
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Edit Partner</h1>
-                <p className="text-gray-600 mt-2">Modify delivery partner information</p>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Edit Partner
+                </h1>
+                <p className="text-gray-600 mt-2">
+                  Modify delivery partner information
+                </p>
               </div>
             </div>
           </div>
@@ -171,7 +179,10 @@ export default function EditPartnerPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="name"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Name *
                       </label>
                       <input
@@ -186,7 +197,10 @@ export default function EditPartnerPage() {
                     </div>
 
                     <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="phone"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Phone *
                       </label>
                       <input
@@ -201,49 +215,61 @@ export default function EditPartnerPage() {
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="email"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Email
                       </label>
                       <input
                         id="email"
                         name="email"
                         type="email"
-                        defaultValue={partner.email || ''}
+                        defaultValue={partner.email || ""}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Email address (optional)"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="vehicleNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="vehicleNumber"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Vehicle Number
                       </label>
                       <input
                         id="vehicleNumber"
                         name="vehicleNumber"
                         type="text"
-                        defaultValue={partner.vehicleNumber || ''}
+                        defaultValue={partner.vehicleNumber || ""}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Vehicle number (optional)"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="serviceArea" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="serviceArea"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Service Area
                       </label>
                       <input
                         id="serviceArea"
                         name="serviceArea"
                         type="text"
-                        defaultValue={partner.serviceArea || ''}
+                        defaultValue={partner.serviceArea || ""}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Service area (optional)"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="capacityPerDay" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="capacityPerDay"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Daily Capacity *
                       </label>
                       <input
@@ -268,7 +294,10 @@ export default function EditPartnerPage() {
                       defaultChecked={partner.isActive}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                    <label
+                      htmlFor="isActive"
+                      className="text-sm font-medium text-gray-700"
+                    >
                       Active Partner
                     </label>
                   </div>
@@ -296,7 +325,7 @@ export default function EditPartnerPage() {
                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {saving ? "Saving..." : "Save Changes"}
                       </button>
                     </div>
                   </div>
@@ -307,8 +336,12 @@ export default function EditPartnerPage() {
             <Card>
               <CardContent className="p-6 text-center">
                 <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p className="text-lg font-medium text-gray-900">Partner not found</p>
-                <p className="text-gray-600">The partner you're looking for doesn't exist or has been removed.</p>
+                <p className="text-lg font-medium text-gray-900">
+                  Partner not found
+                </p>
+                <p className="text-gray-600">
+                  The partner you&apos;re looking for doesn&apos;t exist or has been removed.
+                </p>
                 <Link
                   href="/admin/deliveries/partners"
                   className="inline-flex items-center gap-2 px-4 py-2 mt-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

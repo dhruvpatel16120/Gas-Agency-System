@@ -1,14 +1,29 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-middleware';
-import { NotFoundError, ConflictError } from '@/lib/error-handler';
-import { Prisma } from '@prisma/client';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import {
+  withMiddleware,
+  parseRequestBody,
+  successResponse,
+} from "@/lib/api-middleware";
+import { NotFoundError, ConflictError } from "@/lib/error-handler";
+import { Prisma } from "@prisma/client";
 
-async function getUserHandler(_request: NextRequest, context?: Record<string, unknown>) {
+async function getUserHandler(
+  _request: NextRequest,
+  context?: Record<string, unknown>,
+) {
   // Support App Router dynamic params (awaitable)
-  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
-  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
-  if (!id) throw new NotFoundError('User ID is required');
+  const paramsPromise = (context as unknown as { params?: { id?: string } })
+    ?.params as
+    | Promise<{ id?: string }>
+    | { id?: string }
+    | undefined;
+  const { id } = paramsPromise
+    ? typeof (paramsPromise as Promise<{ id?: string }>).then === "function"
+      ? await (paramsPromise as Promise<{ id?: string }>)
+      : (paramsPromise as { id?: string })
+    : { id: undefined };
+  if (!id) throw new NotFoundError("User ID is required");
 
   const user = await prisma.user.findUnique({
     where: { id },
@@ -31,33 +46,53 @@ async function getUserHandler(_request: NextRequest, context?: Record<string, un
           deliveredAt: true,
           paymentMethod: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 10,
       },
       _count: { select: { bookings: true } },
     },
   });
 
-  if (!user) throw new NotFoundError('User not found');
+  if (!user) throw new NotFoundError("User not found");
 
   // Compute booking stats
   const [total, delivered, pending, approved] = await Promise.all([
     prisma.booking.count({ where: { userId: id } }),
-    prisma.booking.count({ where: { userId: id, status: 'DELIVERED' } }),
-    prisma.booking.count({ where: { userId: id, status: 'PENDING' } }),
-    prisma.booking.count({ where: { userId: id, status: 'APPROVED' } }),
+    prisma.booking.count({ where: { userId: id, status: "DELIVERED" } }),
+    prisma.booking.count({ where: { userId: id, status: "PENDING" } }),
+    prisma.booking.count({ where: { userId: id, status: "APPROVED" } }),
   ]);
 
-  return successResponse({ user, bookingStats: { total, delivered, pending, approved } }, 'User retrieved successfully');
+  return successResponse(
+    { user, bookingStats: { total, delivered, pending, approved } },
+    "User retrieved successfully",
+  );
 }
 
-async function updateUserHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
-  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
-  if (!id) throw new NotFoundError('User ID is required');
+async function updateUserHandler(
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const paramsPromise = (context as unknown as { params?: { id?: string } })
+    ?.params as
+    | Promise<{ id?: string }>
+    | { id?: string }
+    | undefined;
+  const { id } = paramsPromise
+    ? typeof (paramsPromise as Promise<{ id?: string }>).then === "function"
+      ? await (paramsPromise as Promise<{ id?: string }>)
+      : (paramsPromise as { id?: string })
+    : { id: undefined };
+  if (!id) throw new NotFoundError("User ID is required");
 
   const body = await parseRequestBody<Record<string, unknown>>(request);
-  const allowedFields = ['name', 'phone', 'address', 'role', 'remainingQuota'] as const;
+  const allowedFields = [
+    "name",
+    "phone",
+    "address",
+    "role",
+    "remainingQuota",
+  ] as const;
   const updates: Record<string, unknown> = {};
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(body, key)) {
@@ -65,12 +100,18 @@ async function updateUserHandler(request: NextRequest, context?: Record<string, 
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'email') || Object.prototype.hasOwnProperty.call(body, 'userId')) {
-    throw new ConflictError('Email and User ID cannot be changed once set');
+  if (
+    Object.prototype.hasOwnProperty.call(body, "email") ||
+    Object.prototype.hasOwnProperty.call(body, "userId")
+  ) {
+    throw new ConflictError("Email and User ID cannot be changed once set");
   }
 
-  const existing = await prisma.user.findUnique({ where: { id }, select: { id: true } });
-  if (!existing) throw new NotFoundError('User not found');
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!existing) throw new NotFoundError("User not found");
 
   const updated = await prisma.user.update({
     where: { id },
@@ -88,27 +129,51 @@ async function updateUserHandler(request: NextRequest, context?: Record<string, 
     },
   });
 
-  return successResponse(updated, 'User updated successfully');
+  return successResponse(updated, "User updated successfully");
 }
 
-async function deleteUserHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const paramsPromise = (context as any)?.params as Promise<{ id?: string }> | { id?: string } | undefined;
-  const { id } = paramsPromise ? (typeof (paramsPromise as any).then === 'function' ? await (paramsPromise as Promise<{ id?: string }>) : (paramsPromise as { id?: string })) : { id: undefined };
-  if (!id) throw new NotFoundError('User ID is required');
+async function deleteUserHandler(
+  _request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const paramsPromise = (context as unknown as { params?: { id?: string } })
+    ?.params as
+    | Promise<{ id?: string }>
+    | { id?: string }
+    | undefined;
+  const { id } = paramsPromise
+    ? typeof (paramsPromise as Promise<{ id?: string }>).then === "function"
+      ? await (paramsPromise as Promise<{ id?: string }>)
+      : (paramsPromise as { id?: string })
+    : { id: undefined };
+  if (!id) throw new NotFoundError("User ID is required");
 
-  const user = await prisma.user.findUnique({ where: { id }, select: { id: true } });
-  if (!user) throw new NotFoundError('User not found');
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!user) throw new NotFoundError("User not found");
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.booking.deleteMany({ where: { userId: id } });
     await tx.user.delete({ where: { id } });
   });
 
-  return successResponse(null, 'User and related bookings deleted');
+  return successResponse(null, "User and related bookings deleted");
 }
 
-export const GET = withMiddleware(getUserHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
-export const PUT = withMiddleware(updateUserHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
-export const DELETE = withMiddleware(deleteUserHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
-
-
+export const GET = withMiddleware(getUserHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
+});
+export const PUT = withMiddleware(updateUserHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: true,
+});
+export const DELETE = withMiddleware(deleteUserHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
+});

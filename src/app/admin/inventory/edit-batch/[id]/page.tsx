@@ -1,50 +1,62 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { ArrowLeft, Save, Trash2, Package, FileText, Calendar, AlertTriangle } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import {
+  ArrowLeft,
+  Save,
+  Trash2,
+  Package,
+  FileText,
+  Calendar,
+  AlertTriangle,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function EditBatchPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const batchId = params.id as string;
-  
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
-    supplier: '',
-    invoiceNo: '',
-    quantity: '',
-    notes: '',
-    receivedAt: new Date().toISOString().split('T')[0],
-    status: 'ACTIVE'
+    supplier: "",
+    invoiceNo: "",
+    quantity: "",
+    notes: "",
+    receivedAt: new Date().toISOString().split("T")[0],
+    status: "ACTIVE",
   });
 
   const loadBatch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/inventory/batches/${batchId}`, { cache: 'no-store' });
+      const res = await fetch(`/api/admin/inventory/batches/${batchId}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
           const batch = data.data;
           setFormData({
-            supplier: batch.supplier || '',
-            invoiceNo: batch.invoiceNo || '',
-            quantity: batch.quantity?.toString() || '',
-            notes: batch.notes || '',
-            receivedAt: batch.receivedAt ? new Date(batch.receivedAt).toISOString().split('T')[0] : '',
-            status: batch.status || 'ACTIVE'
+            supplier: batch.supplier || "",
+            invoiceNo: batch.invoiceNo || "",
+            quantity: batch.quantity?.toString() || "",
+            notes: batch.notes || "",
+            receivedAt: batch.receivedAt
+              ? new Date(batch.receivedAt).toISOString().split("T")[0]
+              : "",
+            status: batch.status || "ACTIVE",
           });
         }
       }
     } catch (error) {
-      console.error('Failed to load batch:', error);
+      console.error("Failed to load batch:", error);
     } finally {
       setLoading(false);
     }
@@ -56,47 +68,47 @@ export default function EditBatchPage() {
     }
   }, [batchId, loadBatch]);
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const res = await fetch(`/api/admin/inventory/batches/${batchId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          quantity: parseInt(formData.quantity)
-        })
+          quantity: parseInt(formData.quantity),
+        }),
       });
-      
+
       if (res.ok) {
-        router.push('/admin/inventory');
+        router.push("/admin/inventory");
       }
     } catch (error) {
-      console.error('Failed to update batch:', error);
+      console.error("Failed to update batch:", error);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this batch?')) return;
-    
+    if (!confirm("Are you sure you want to delete this batch?")) return;
+
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/inventory/batches/${batchId}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
-      
+
       if (res.ok) {
-        router.push('/admin/inventory');
+        router.push("/admin/inventory");
       }
     } catch (error) {
-      console.error('Failed to delete batch:', error);
+      console.error("Failed to delete batch:", error);
     } finally {
       setDeleting(false);
     }
@@ -104,7 +116,7 @@ export default function EditBatchPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 text-black">
         <AdminNavbar />
         <main className="max-w-4xl mx-auto py-8 sm:px-6 lg:px-8">
           <div className="flex items-center justify-center py-20">
@@ -117,14 +129,14 @@ export default function EditBatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 text-black">
       <AdminNavbar />
       <main className="max-w-4xl mx-auto py-8 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
-            <Link 
-              href="/admin/inventory" 
+            <Link
+              href="/admin/inventory"
               className="inline-flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors duration-200"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -132,7 +144,9 @@ export default function EditBatchPage() {
             </Link>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Edit Batch</h1>
-              <p className="text-gray-600">Update batch information and status</p>
+              <p className="text-gray-600">
+                Update batch information and status
+              </p>
             </div>
           </div>
 
@@ -141,10 +155,12 @@ export default function EditBatchPage() {
             <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
               <div className="flex items-center gap-3">
                 <Package className="w-5 h-5 text-purple-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Batch Details</h2>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Batch Details
+                </h2>
               </div>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -156,7 +172,12 @@ export default function EditBatchPage() {
                     type="text"
                     required
                     value={formData.supplier}
-                    onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        supplier: e.target.value,
+                      }))
+                    }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                     placeholder="Supplier name"
                   />
@@ -170,7 +191,12 @@ export default function EditBatchPage() {
                   <input
                     type="text"
                     value={formData.invoiceNo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, invoiceNo: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        invoiceNo: e.target.value,
+                      }))
+                    }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                     placeholder="Invoice number (optional)"
                   />
@@ -185,7 +211,12 @@ export default function EditBatchPage() {
                     type="number"
                     required
                     value={formData.quantity}
-                    onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        quantity: e.target.value,
+                      }))
+                    }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                     placeholder="Number of cylinders"
                   />
@@ -200,7 +231,12 @@ export default function EditBatchPage() {
                     type="date"
                     required
                     value={formData.receivedAt}
-                    onChange={(e) => setFormData(prev => ({ ...prev, receivedAt: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        receivedAt: e.target.value,
+                      }))
+                    }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                   />
                 </div>
@@ -213,7 +249,15 @@ export default function EditBatchPage() {
                   <select
                     required
                     value={formData.status}
-                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value as 'ACTIVE' | 'DEPLETED' | 'EXPIRED' }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        status: e.target.value as
+                          | "ACTIVE"
+                          | "DEPLETED"
+                          | "EXPIRED",
+                      }))
+                    }
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                   >
                     <option value="ACTIVE">Active</option>
@@ -230,7 +274,9 @@ export default function EditBatchPage() {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, notes: e.target.value }))
+                  }
                   rows={3}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200"
                   placeholder="Additional notes about this batch..."
@@ -256,15 +302,15 @@ export default function EditBatchPage() {
                     </>
                   )}
                 </button>
-                
+
                 <button
                   type="button"
-                  onClick={() => router.push('/admin/inventory')}
+                  onClick={() => router.push("/admin/inventory")}
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
                 >
                   Cancel
                 </button>
-                
+
                 <button
                   type="submit"
                   disabled={saving || !formData.supplier || !formData.quantity}

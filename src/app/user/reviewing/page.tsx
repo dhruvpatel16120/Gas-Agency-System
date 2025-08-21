@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import UserNavbar from '@/components/UserNavbar';
-import { useEffect } from 'react';
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import UserNavbar from "@/components/UserNavbar";
+import { useEffect } from "react";
 
 export default function PaymentReviewingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useSearchParams();
-  const bookingId = params.get('id') || '';
+  const bookingId = params.get("id") || "";
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
   }, [status, session, router]);
 
   return (
@@ -32,23 +32,32 @@ export default function PaymentReviewingPage() {
                 ⏳
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Payment Under Review</h1>
-            <p className="mt-2 text-gray-600 max-w-xl">We have recorded your payment. Our admin team will review it and notify you via email. Your booking will be approved as soon as payment is verified. Please check the website frequently for updates.</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Payment Under Review
+            </h1>
+            <p className="mt-2 text-gray-600 max-w-xl">
+              We have recorded your payment. Our admin team will review it and
+              notify you via email. Your booking will be approved as soon as
+              payment is verified. Please check the website frequently for
+              updates.
+            </p>
             {bookingId && (
-              <p className="mt-1 text-gray-500 text-sm">Booking ID: <span className="font-mono">{bookingId}</span></p>
+              <p className="mt-1 text-gray-500 text-sm">
+                Booking ID: <span className="font-mono">{bookingId}</span>
+              </p>
             )}
 
             <div className="mt-6 flex gap-3">
               {bookingId && (
                 <button
-                  onClick={() => router.push('/user')}
+                  onClick={() => router.push("/user")}
                   className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Go to Dashboard
                 </button>
               )}
               <button
-                onClick={() => router.push('/user/bookings')}
+                onClick={() => router.push("/user/bookings")}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 View History
@@ -60,5 +69,3 @@ export default function PaymentReviewingPage() {
     </div>
   );
 }
-
-

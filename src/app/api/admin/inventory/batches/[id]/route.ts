@@ -1,17 +1,28 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-middleware';
-import { NotFoundError } from '@/lib/error-handler';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import {
+  withMiddleware,
+  parseRequestBody,
+  successResponse,
+} from "@/lib/api-middleware";
+import { NotFoundError } from "@/lib/error-handler";
+//
 
-async function getBatchHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const raw = (context as any)?.params;
-  const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
-  const id = (awaited?.id as string) || undefined;
-  
-  if (!id) throw new NotFoundError('Batch ID is required');
+async function getBatchHandler(
+  _request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const raw = (context as unknown as { params?: { id?: string } | Promise<{ id?: string }> })?.params;
+  const awaited =
+    raw && typeof (raw as Promise<{ id?: string }>).then === "function"
+      ? await (raw as Promise<{ id?: string }>)
+      : (raw as { id?: string } | undefined);
+  const id = awaited?.id as string | undefined;
+
+  if (!id) throw new NotFoundError("Batch ID is required");
 
   try {
-    const batch = await (prisma as any).cylinderBatch.findUnique({
+    const batch = await prisma.cylinderBatch.findUnique({
       where: { id },
       select: {
         id: true,
@@ -20,25 +31,31 @@ async function getBatchHandler(_request: NextRequest, context?: Record<string, u
         quantity: true,
         receivedAt: true,
         notes: true,
-        status: true
-      }
+        status: true,
+      },
     });
 
-    if (!batch) throw new NotFoundError('Batch not found');
+    if (!batch) throw new NotFoundError("Batch not found");
 
-    return successResponse(batch, 'Batch retrieved successfully');
+    return successResponse(batch, "Batch retrieved successfully");
   } catch (error) {
-    console.error('Failed to fetch batch:', error);
+    console.error("Failed to fetch batch:", error);
     throw error;
   }
 }
 
-async function updateBatchHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const raw = (context as any)?.params;
-  const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
-  const id = (awaited?.id as string) || undefined;
-  
-  if (!id) throw new NotFoundError('Batch ID is required');
+async function updateBatchHandler(
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const rawParams = (context as unknown as { params?: { id?: string } | Promise<{ id?: string }> })?.params;
+  const awaited =
+    rawParams && typeof (rawParams as Promise<{ id?: string }>).then === "function"
+      ? await (rawParams as Promise<{ id?: string }>)
+      : (rawParams as { id?: string } | undefined);
+  const id = awaited?.id as string | undefined;
+
+  if (!id) throw new NotFoundError("Batch ID is required");
 
   try {
     const body = await parseRequestBody<{
@@ -50,7 +67,7 @@ async function updateBatchHandler(request: NextRequest, context?: Record<string,
       status: string;
     }>(request);
 
-    const batch = await (prisma as any).cylinderBatch.update({
+    const batch = await prisma.cylinderBatch.update({
       where: { id },
       data: {
         supplier: body.supplier,
@@ -58,54 +75,72 @@ async function updateBatchHandler(request: NextRequest, context?: Record<string,
         quantity: body.quantity,
         notes: body.notes,
         receivedAt: new Date(body.receivedAt),
-        status: body.status
-      }
+        status: body.status as any,
+      },
     });
 
-    return successResponse(batch, 'Batch updated successfully');
+    return successResponse(batch, "Batch updated successfully");
   } catch (error) {
-    console.error('Failed to update batch:', error);
+    console.error("Failed to update batch:", error);
     throw error;
   }
 }
 
-async function deleteBatchHandler(_request: NextRequest, context?: Record<string, unknown>) {
-  const raw = (context as any)?.params;
-  const awaited = raw && typeof raw.then === 'function' ? await raw : raw;
-  const id = (awaited?.id as string) || undefined;
-  
-  if (!id) throw new NotFoundError('Batch ID is required');
+async function deleteBatchHandler(
+  _request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const raw = (context as unknown as { params?: { id?: string } | Promise<{ id?: string }> })?.params;
+  const awaited =
+    raw && typeof (raw as Promise<{ id?: string }>).then === "function"
+      ? await (raw as Promise<{ id?: string }>)
+      : (raw as { id?: string } | undefined);
+  const id = awaited?.id as string | undefined;
+
+  if (!id) throw new NotFoundError("Batch ID is required");
 
   try {
-    const batch = await (prisma as any).cylinderBatch.findUnique({
+    const batch = await prisma.cylinderBatch.findUnique({
       where: { id },
-      select: { quantity: true }
+      select: { quantity: true },
     });
 
-    if (!batch) throw new NotFoundError('Batch not found');
+    if (!batch) throw new NotFoundError("Batch not found");
 
     // Delete the batch
-    await (prisma as any).cylinderBatch.delete({
-      where: { id }
+    await prisma.cylinderBatch.delete({
+      where: { id },
     });
 
     // Update stock (decrease by batch quantity)
-    await (prisma as any).cylinderStock.update({
-      where: { id: 'default' },
+    await prisma.cylinderStock.update({
+      where: { id: "default" },
       data: {
         totalAvailable: {
-          decrement: batch.quantity
-        }
-      }
+          decrement: batch.quantity,
+        },
+      },
     });
 
-    return successResponse({ deleted: true }, 'Batch deleted successfully');
+    return successResponse({ deleted: true }, "Batch deleted successfully");
   } catch (error) {
-    console.error('Failed to delete batch:', error);
+    console.error("Failed to delete batch:", error);
     throw error;
   }
 }
 
-export const GET = withMiddleware(getBatchHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
-export const PUT = withMiddleware(updateBatchHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
-export const DELETE = withMiddleware(deleteBatchHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
+export const GET = withMiddleware(getBatchHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
+});
+export const PUT = withMiddleware(updateBatchHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: true,
+});
+export const DELETE = withMiddleware(deleteBatchHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
+});

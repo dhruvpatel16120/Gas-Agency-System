@@ -1,17 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 // GET - Fetch delivery assignment for a specific booking
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id: bookingId } = await params;
@@ -25,17 +28,17 @@ export async function GET(
             id: true,
             name: true,
             phone: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
-      orderBy: { assignedAt: 'desc' }
+      orderBy: { assignedAt: "desc" },
     });
 
     if (!deliveryAssignment) {
       return NextResponse.json({
         success: true,
-        data: null
+        data: null,
       });
     }
 
@@ -48,18 +51,18 @@ export async function GET(
       partnerEmail: deliveryAssignment.partner.email,
       status: deliveryAssignment.status,
       assignedAt: deliveryAssignment.assignedAt,
-      notes: deliveryAssignment.notes
+      notes: deliveryAssignment.notes,
     };
 
     return NextResponse.json({
       success: true,
-      data: transformedData
+      data: transformedData,
     });
   } catch (error) {
-    console.error('Failed to fetch delivery assignment:', error);
+    console.error("Failed to fetch delivery assignment:", error);
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch delivery assignment' },
-      { status: 500 }
+      { success: false, message: "Failed to fetch delivery assignment" },
+      { status: 500 },
     );
   }
 }

@@ -1,59 +1,116 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import { sendOutForDeliveryEmail, sendDeliveryCompletedEmail, sendInvoiceEmail } from '@/lib/email';
-import puppeteer from 'puppeteer';
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  sendOutForDeliveryEmail,
+  sendDeliveryCompletedEmail,
+  sendInvoiceEmail,
+  sendCODBookingApprovalEmail,
+  sendBookingApprovalEmail,
+} from "@/lib/email";
+import puppeteer from "puppeteer";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== 'ADMIN') {
-      return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { id: bookingId } = await params;
     const { newStatus, cancellationReason } = await request.json();
 
-    if (!newStatus || !['APPROVED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'].includes(newStatus)) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Invalid status. Must be APPROVED, OUT_FOR_DELIVERY, DELIVERED, or CANCELLED' 
-      }, { status: 400 });
+    if (
+      !newStatus ||
+      !["APPROVED", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"].includes(
+        newStatus,
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Invalid status. Must be APPROVED, OUT_FOR_DELIVERY, DELIVERED, or CANCELLED",
+        },
+        { status: 400 },
+      );
     }
 
-    // Get booking with delivery assignment details
+    // Get booking with delivery assignment, payment details, and user data
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            phone: true,
+            address: true,
+          },
+        },
         assignment: {
           include: {
-            partner: true
-          }
-        }
-      }
+            partner: true,
+          },
+        },
+        payments: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
     });
 
     if (!booking) {
-      return NextResponse.json({ success: false, message: 'Booking not found' }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Booking not found" },
+        { status: 404 },
+      );
+    }
+
+    // Check UPI payment restriction for approval
+    if (
+      newStatus === "APPROVED" &&
+      booking.paymentMethod === "UPI" &&
+      booking.payments.length > 0 &&
+      booking.payments[0].status !== "SUCCESS"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "⚠️ Cannot approve booking: UPI payment is pending. Please ensure payment is completed or request user to make payment before approval.",
+        },
+        { status: 400 },
+      );
     }
 
     // Validate status transitions
-    if (newStatus === 'OUT_FOR_DELIVERY' && !booking.assignment) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Cannot mark as OUT_FOR_DELIVERY without a delivery assignment' 
-      }, { status: 400 });
+    if (newStatus === "OUT_FOR_DELIVERY" && !booking.assignment) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Cannot mark as OUT_FOR_DELIVERY without a delivery assignment",
+        },
+        { status: 400 },
+      );
     }
 
-    if (newStatus === 'DELIVERED' && !booking.assignment) {
-      return NextResponse.json({ 
-        success: false, 
-        message: 'Cannot mark as DELIVERED without a delivery assignment' 
-      }, { status: 400 });
+    if (newStatus === "DELIVERED" && !booking.assignment) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Cannot mark as DELIVERED without a delivery assignment",
+        },
+        { status: 400 },
+      );
     }
 
     // Update booking status
@@ -61,9 +118,9 @@ export async function PUT(
       where: { id: bookingId },
       data: {
         status: newStatus,
-        ...(newStatus === 'DELIVERED' && { deliveredAt: new Date() }),
-        updatedAt: new Date()
-      }
+        ...(newStatus === "DELIVERED" && { deliveredAt: new Date() }),
+        updatedAt: new Date(),
+      },
     });
 
     // Create booking event
@@ -72,70 +129,113 @@ export async function PUT(
         bookingId,
         status: newStatus,
         title: `Status Updated to ${newStatus}`,
-        description: newStatus === 'CANCELLED' && cancellationReason 
-          ? `Booking cancelled: ${cancellationReason}`
-          : `Booking status changed to ${newStatus}`
-      }
+        description:
+          newStatus === "CANCELLED" && cancellationReason
+            ? `Booking cancelled: ${cancellationReason}`
+            : `Booking status changed to ${newStatus}`,
+      },
     });
 
     // Send email notifications based on status
     try {
-      if (newStatus === 'OUT_FOR_DELIVERY' && booking.assignment) {
+      if (newStatus === "APPROVED") {
+        // Send approval email based on payment method
+        const deliveryDateStr = updatedBooking.expectedDate
+          ? new Date(updatedBooking.expectedDate).toLocaleDateString()
+          : "To be scheduled";
+
+        if (updatedBooking.paymentMethod === "COD") {
+          const amount = updatedBooking.quantity * 1100; // Fixed price per cylinder
+          await sendCODBookingApprovalEmail(
+            booking.user?.email || booking.userEmail || "",
+            booking.user?.name || booking.userName || "",
+            bookingId,
+            deliveryDateStr,
+            amount,
+          );
+        } else {
+          await sendBookingApprovalEmail(
+            booking.user?.email || booking.userEmail || "",
+            booking.user?.name || booking.userName || "",
+            bookingId,
+            deliveryDateStr,
+          );
+        }
+      } else if (newStatus === "OUT_FOR_DELIVERY" && booking.assignment) {
         await sendOutForDeliveryEmail(
-          booking.userEmail || '',
-          booking.userName || '',
+          booking.user?.email || booking.userEmail || "",
+          booking.user?.name || booking.userName || "",
           bookingId,
-          { 
-            name: booking.assignment.partner.name || '', 
-            phone: booking.assignment.partner.phone || '' 
-          }
+          {
+            name: booking.assignment.partner.name || "",
+            phone: booking.assignment.partner.phone || "",
+          },
         );
-      } else if (newStatus === 'DELIVERED') {
+      } else if (newStatus === "DELIVERED") {
         // Send delivery completion email
         await sendDeliveryCompletedEmail(
-          booking.userEmail || '',
-          booking.userName || '',
+          booking.user?.email || booking.userEmail || "",
+          booking.user?.name || booking.userName || "",
           bookingId,
-          new Date().toLocaleString()
+          new Date().toLocaleString(),
         );
 
         // Generate and send PDF invoice
         try {
           const pdfBuffer = await generateInvoicePDF(booking);
           await sendInvoiceEmail(
-            booking.userEmail || '',
-            booking.userName || '',
+            booking.user?.email || booking.userEmail || "",
+            booking.user?.name || booking.userName || "",
             bookingId,
-            Buffer.from(pdfBuffer)
+            pdfBuffer instanceof Buffer ? pdfBuffer : Buffer.from(pdfBuffer),
           );
-          console.log('Invoice PDF sent successfully to', booking.userEmail);
+          console.log(
+            "Invoice PDF sent successfully to",
+            booking.user?.email || booking.userEmail,
+          );
         } catch (invoiceError) {
-          console.error('Failed to generate or send invoice PDF:', invoiceError);
+          console.error(
+            "Failed to generate or send invoice PDF:",
+            invoiceError,
+          );
           // Don't fail the main request if invoice fails
         }
       }
     } catch (emailError) {
-      console.error('Failed to send status change email:', emailError);
+      console.error("Failed to send status change email:", emailError);
       // Don't fail the request if email fails
     }
 
     return NextResponse.json({
       success: true,
       data: updatedBooking,
-      message: `Booking status updated to ${newStatus}`
+      message: `Booking status updated to ${newStatus}`,
     });
-
   } catch (error) {
-    console.error('Failed to update booking status:', error);
+    console.error("Failed to update booking status:", error);
     return NextResponse.json(
-      { success: false, message: 'Failed to update booking status' },
-      { status: 500 }
+      { success: false, message: "Failed to update booking status" },
+      { status: 500 },
     );
   }
 }
 
 // Helper function to generate invoice PDF
-async function generateInvoicePDF(booking: any): Promise<Buffer> {
+type InvoiceBooking = {
+  id: string;
+  quantity: number;
+  requestedAt: Date;
+  user?: { name?: string | null; email?: string | null; phone?: string | null; address?: string | null } | null;
+  userName?: string | null;
+  userEmail?: string | null;
+  userPhone?: string | null;
+  userAddress?: string | null;
+  paymentMethod?: string | null;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
+};
+
+async function generateInvoicePDF(booking: InvoiceBooking): Promise<Uint8Array> {
   const pricePerCylinder = 1100;
   const subtotal = pricePerCylinder * booking.quantity;
   const gst = subtotal * 0.18;
@@ -425,15 +525,20 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
             <div class="meta-section">
               <h3>Invoice Details</h3>
               <p><strong>Invoice Number:</strong> INV-${booking.id.slice(-8).toUpperCase()}</p>
-              <p><strong>Issue Date:</strong> ${new Date().toLocaleDateString('en-IN', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}</p>
-              <p><strong>Due Date:</strong> ${new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-IN', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              <p><strong>Issue Date:</strong> ${new Date().toLocaleDateString(
+                "en-IN",
+                {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                },
+              )}</p>
+              <p><strong>Due Date:</strong> ${new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000,
+              ).toLocaleDateString("en-IN", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
               })}</p>
             </div>
             
@@ -441,19 +546,23 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
               <h3>Booking Information</h3>
               <p><strong>Booking ID:</strong> ${booking.id.slice(-8).toUpperCase()}</p>
               <p><strong>Status:</strong> <span class="status-badge">DELIVERED</span></p>
-              <p><strong>Requested:</strong> ${new Date(booking.requestedAt).toLocaleDateString('en-IN')}</p>
-              <p><strong>Delivered:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
+              <p><strong>Requested:</strong> ${new Date(booking.requestedAt).toLocaleDateString("en-IN")}</p>
+              <p><strong>Delivered:</strong> ${new Date().toLocaleDateString("en-IN")}</p>
             </div>
           </div>
 
           <div class="meta-section">
             <h3>Customer Information</h3>
-            <p><strong>Name:</strong> ${booking.userName}</p>
-            <p><strong>Email:</strong> ${booking.userEmail}</p>
-            <p><strong>Phone:</strong> ${booking.userPhone}</p>
-            <p><strong>Delivery Address:</strong> ${booking.userAddress}</p>
-            ${booking.receiverName && booking.receiverName !== booking.userName ? 
-              `<p><strong>Receiver:</strong> ${booking.receiverName} (${booking.receiverPhone})</p>` : ''}
+            <p><strong>Name:</strong> ${booking.user?.name || booking.userName || "N/A"}</p>
+            <p><strong>Email:</strong> ${booking.user?.email || booking.userEmail || "N/A"}</p>
+            <p><strong>Phone:</strong> ${booking.user?.phone || booking.userPhone || "N/A"}</p>
+            <p><strong>Delivery Address:</strong> ${booking.user?.address || booking.userAddress || "N/A"}</p>
+            ${
+              booking.receiverName &&
+              booking.receiverName !== (booking.user?.name || booking.userName)
+                ? `<p><strong>Receiver:</strong> ${booking.receiverName} (${booking.receiverPhone || "N/A"})</p>`
+                : ""
+            }
           </div>
 
           <table class="items-table">
@@ -472,33 +581,37 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
                   <small style="color: #9ca3af;">High-quality LPG cylinder with safety valve</small>
                 </td>
                 <td style="text-align: center; font-weight: 500;">${booking.quantity}</td>
-                <td style="text-align: right; font-weight: 500;">₹${pricePerCylinder.toLocaleString('en-IN')}</td>
-                <td style="text-align: right; font-weight: 600; color: #1f2937;">₹${subtotal.toLocaleString('en-IN')}</td>
+                <td style="text-align: right; font-weight: 500;">₹${pricePerCylinder.toLocaleString("en-IN")}</td>
+                <td style="text-align: right; font-weight: 600; color: #1f2937;">₹${subtotal.toLocaleString("en-IN")}</td>
               </tr>
             </tbody>
           </table>
 
-          ${booking.paymentMethod ? `
+          ${
+            booking.paymentMethod
+              ? `
           <div class="payment-info">
             <h4>Payment Information</h4>
-            <p><strong>Payment Method:</strong> ${booking.paymentMethod === 'UPI' ? 'UPI/Online Payment' : 'Cash on Delivery'}</p>
+            <p><strong>Payment Method:</strong> ${booking.paymentMethod === "UPI" ? "UPI/Online Payment" : "Cash on Delivery"}</p>
             <p><strong>Payment Status:</strong> SUCCESS</p>
           </div>
-          ` : ''}
+          `
+              : ""
+          }
 
           <div class="totals">
             <table class="totals-table">
               <tr>
                 <td><strong>Subtotal:</strong></td>
-                <td style="text-align: right;"><strong>₹${subtotal.toLocaleString('en-IN')}</strong></td>
+                <td style="text-align: right;"><strong>₹${subtotal.toLocaleString("en-IN")}</strong></td>
               </tr>
               <tr>
                 <td><strong>GST (18%):</strong></td>
-                <td style="text-align: right;"><strong>₹${gst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                <td style="text-align: right;"><strong>₹${gst.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
               </tr>
               <tr class="total-row">
                 <td><strong>Total Amount:</strong></td>
-                <td style="text-align: right;"><strong>₹${total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                <td style="text-align: right;"><strong>₹${total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
               </tr>
             </table>
           </div>
@@ -510,7 +623,7 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
           <p>or call our customer service at +91-1234567890</p>
           <br>
           <p><small>This is a computer-generated invoice and does not require a physical signature.</small></p>
-          <p><small>Generated on ${new Date().toLocaleString('en-IN')} • Invoice ID: INV-${booking.id.slice(-8).toUpperCase()}</small></p>
+          <p><small>Generated on ${new Date().toLocaleString("en-IN")} • Invoice ID: INV-${booking.id.slice(-8).toUpperCase()}</small></p>
         </div>
       </div>
     </body>
@@ -520,61 +633,61 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
   // Generate PDF using Puppeteer with improved error handling
   let browser;
   let page;
-  
+
   try {
     browser = await puppeteer.launch({
       headless: true,
       args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-web-security',
-        '--disable-features=VizDisplayCompositor'
-      ]
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+        "--disable-web-security",
+        "--disable-features=VizDisplayCompositor",
+      ],
     });
 
     page = await browser.newPage();
-    
+
     // Set viewport for consistent rendering
     await page.setViewport({ width: 1200, height: 800 });
-    
+
     // Set content and wait for fonts to load
-    await page.setContent(invoiceHtml, { 
-      waitUntil: ['domcontentloaded'] 
+    await page.setContent(invoiceHtml, {
+      waitUntil: ["domcontentloaded"],
     });
 
     // Wait a bit for fonts and styles to fully render
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Generate PDF with professional settings
     const pdfBuffer = await page.pdf({
-      format: 'A4',
+      format: "A4",
       printBackground: true,
       margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm'
+        top: "20mm",
+        right: "20mm",
+        bottom: "20mm",
+        left: "20mm",
       },
       displayHeaderFooter: true,
-      headerTemplate: '<div></div>',
+      headerTemplate: "<div></div>",
       footerTemplate: `
         <div style="font-size: 10px; color: #666; text-align: center; width: 100%;">
-          <span>Invoice INV-${booking.id?.slice(-8).toUpperCase() || 'INVOICE'} • Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+          <span>Invoice INV-${booking.id?.slice(-8).toUpperCase() || "INVOICE"} • Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
         </div>
       `,
-      preferCSSPageSize: true
+      preferCSSPageSize: true,
     });
 
     return pdfBuffer;
-    
   } catch (error) {
-    console.error('PDF generation error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error("PDF generation error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
     throw new Error(`Failed to generate PDF: ${errorMessage}`);
   } finally {
     // Ensure browser is closed even if there's an error
@@ -582,14 +695,14 @@ async function generateInvoicePDF(booking: any): Promise<Buffer> {
       try {
         await page.close();
       } catch (e) {
-        console.error('Error closing page:', e);
+        console.error("Error closing page:", e);
       }
     }
     if (browser) {
       try {
         await browser.close();
-        } catch (e) {
-        console.error('Error closing browser:', e);
+      } catch (e) {
+        console.error("Error closing browser:", e);
       }
     }
   }

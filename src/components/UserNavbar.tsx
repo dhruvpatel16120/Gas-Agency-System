@@ -1,22 +1,21 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { Flame, Menu, LogOut, User, Calendar, PlusCircle, ChevronDown, Phone } from 'lucide-react';
-import { getInitials } from '@/lib/utils';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { Flame, Menu, LogOut, User, Calendar, PlusCircle, ChevronDown, Phone } from "lucide-react";
+import { getInitials } from "@/lib/utils";
 
 export default function UserNavbar() {
   const { data: session } = useSession();
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Centralized routes for menu links
-  const PROFILE_ROUTE = '/user/profile';
+  const PROFILE_ROUTE = "/user/profile";
 
   useEffect(() => {
     const onClickAway = (e: MouseEvent) => {
@@ -24,8 +23,8 @@ export default function UserNavbar() {
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', onClickAway);
-    return () => document.removeEventListener('mousedown', onClickAway);
+    document.addEventListener("mousedown", onClickAway);
+    return () => document.removeEventListener("mousedown", onClickAway);
   }, []);
   // Close mobile menu on route change
   useEffect(() => {
@@ -36,7 +35,9 @@ export default function UserNavbar() {
     <Link
       href={href}
       className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-        pathname === href ? 'bg-white/20 text-white' : 'text-white/90 hover:bg-white/10 hover:text-white'
+        pathname === href
+          ? "bg-white/20 text-white"
+          : "text-white/90 hover:bg-white/10 hover:text-white"
       }`}
     >
       {label}
@@ -47,14 +48,14 @@ export default function UserNavbar() {
     <div
       className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/20 text-white font-semibold ring-2 ring-white/30"
       aria-label="User avatar"
-      title={session?.user?.name || 'User'}
+      title={session?.user?.name || "User"}
     >
-      {getInitials(session?.user?.name || 'U')}
+      {getInitials(session?.user?.name || "U")}
     </div>
   );
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: '/login' });
+    await signOut({ callbackUrl: "/login" });
   };
 
   return (
@@ -102,37 +103,78 @@ export default function UserNavbar() {
                 <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
                   <div className="flex items-center gap-3">
                     <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-semibold ring-4 ring-blue-100">
-                      {getInitials(session?.user?.name || 'U')}
+                      {getInitials(session?.user?.name || "U")}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{session?.user?.name || 'User'}</p>
-                      <p className="text-xs text-gray-500 truncate">{session?.user?.email || ''}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {session?.user?.name || "User"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {session?.user?.email || ""}
+                      </p>
                     </div>
                   </div>
                   {session?.user?.role && (
-                    <span className="mt-3 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">{String(session.user.role).toLowerCase()}</span>
+                    <span className="mt-3 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                      {String(session.user.role).toLowerCase()}
+                    </span>
                   )}
                 </div>
                 {/* links */}
                 <div className="py-2 text-sm">
-                  <Link href="/user" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><Calendar className="w-4 h-4" /></span>
+                  <Link
+                    href="/user"
+                    className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <Calendar className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">Dashboard</span>
                   </Link>
-                  <Link href="/user/book" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><PlusCircle className="w-4 h-4" /></span>
+                  <Link
+                    href="/user/book"
+                    className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <PlusCircle className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">New Booking</span>
                   </Link>
-                  <Link href="/user/bookings" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><Calendar className="w-4 h-4" /></span>
+                  <Link
+                    href="/user/bookings"
+                    className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <Calendar className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">Booking History</span>
                   </Link>
-                  <Link href={PROFILE_ROUTE} className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><User className="w-4 h-4" /></span>
+                  <Link
+                    href={PROFILE_ROUTE}
+                    className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <User className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">Profile</span>
                   </Link>
-                  <Link href="/user/contact" className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50" role="menuitem" onClick={() => setOpen(false)}>
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600"><Phone className="w-4 h-4" /></span>
+                  <Link
+                    href="/user/contact"
+                    className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setOpen(false)}
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <Phone className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">Contact Us</span>
                   </Link>
                 </div>
@@ -142,7 +184,9 @@ export default function UserNavbar() {
                     className="w-full inline-flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
                     onClick={handleSignOut}
                   >
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-red-50 text-red-600"><LogOut className="w-4 h-4" /></span>
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-red-50 text-red-600">
+                      <LogOut className="w-4 h-4" />
+                    </span>
                     <span className="flex-1">Sign Out</span>
                   </button>
                 </div>
@@ -151,9 +195,7 @@ export default function UserNavbar() {
           </div>
 
           {/* Mobile avatar only (no dropdown) */}
-          <div className="md:hidden">
-            {avatar}
-          </div>
+          <div className="md:hidden">{avatar}</div>
 
           {/* Mobile menu button */}
           <button
@@ -170,32 +212,72 @@ export default function UserNavbar() {
       {/* Mobile menu overlay */}
       {mobileOpen && (
         <div className="md:hidden" id="mobile-nav">
-          <div className="fixed inset-0 z-40" onClick={() => setMobileOpen(false)}>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMobileOpen(false)}
+          >
             <div className="absolute inset-0 bg-black/30"></div>
           </div>
           <div className="fixed top-16 inset-x-0 z-50 mx-3 rounded-2xl bg-white text-gray-900 shadow-2xl ring-1 ring-black/5 overflow-hidden">
             <div className="px-4 pt-4 pb-3 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
               <div className="flex items-center gap-3">
                 <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-semibold ring-4 ring-blue-100">
-                  {getInitials(session?.user?.name || 'U')}
+                  {getInitials(session?.user?.name || "U")}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{session?.user?.name || 'User'}</p>
-                  <p className="text-xs text-gray-500 truncate">{session?.user?.email || ''}</p>
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {session?.user?.name || "User"}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">
+                    {session?.user?.email || ""}
+                  </p>
                 </div>
               </div>
             </div>
             <nav className="p-2 text-sm">
-              <Link href="/user" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Dashboard</Link>
-              <Link href="/user/book" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>New Booking</Link>
-              <Link href="/user/bookings" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Booking History</Link>
-              <Link href={PROFILE_ROUTE} className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Profile</Link>
-              <Link href="/user/contact" className="block px-4 py-3 rounded-lg hover:bg-gray-50" onClick={() => setMobileOpen(false)}>Contact Us</Link>
+              <Link
+                href="/user"
+                className="block px-4 py-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/user/book"
+                className="block px-4 py-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                New Booking
+              </Link>
+              <Link
+                href="/user/bookings"
+                className="block px-4 py-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Booking History
+              </Link>
+              <Link
+                href={PROFILE_ROUTE}
+                className="block px-4 py-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Profile
+              </Link>
+              <Link
+                href="/user/contact"
+                className="block px-4 py-3 rounded-lg hover:bg-gray-50"
+                onClick={() => setMobileOpen(false)}
+              >
+                Contact Us
+              </Link>
             </nav>
             <div className="border-t border-gray-100 p-2">
               <button
                 className="w-full rounded-lg px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
-                onClick={async () => { setMobileOpen(false); await signOut({ callbackUrl: '/login' }); }}
+                onClick={async () => {
+                  setMobileOpen(false);
+                  await signOut({ callbackUrl: "/login" });
+                }}
               >
                 Sign Out
               </button>
@@ -206,5 +288,3 @@ export default function UserNavbar() {
     </header>
   );
 }
-
-

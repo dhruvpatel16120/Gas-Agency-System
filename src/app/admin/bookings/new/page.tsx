@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { toast } from 'react-hot-toast';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { ArrowLeft, Save, User, Package, Truck, Calendar, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import { toast } from "react-hot-toast";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import { ArrowLeft, Save, User, Package, CheckCircle } from "lucide-react";
 
 type User = {
   id: string;
@@ -23,79 +23,84 @@ export default function NewBookingPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
 
   // Form fields
   const [formData, setFormData] = useState({
     quantity: 1,
-    paymentMethod: 'COD' as 'COD' | 'UPI',
-    receiverName: '',
-    receiverPhone: '',
-    expectedDate: '',
-    notes: '',
-    deliveryAddress: ''
+    paymentMethod: "COD" as "COD" | "UPI",
+    receiverName: "",
+    receiverPhone: "",
+    expectedDate: "",
+    notes: "",
+    deliveryAddress: "",
   });
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
-    else if (session.user.role !== 'ADMIN') router.push('/user');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
+    else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
-  useEffect(() => {
-    if (session?.user?.role === 'ADMIN') {
-      loadUsers();
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user => 
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.phone.includes(searchQuery) ||
-        user.userId.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-    }
-  }, [searchQuery, users]);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/users?limit=1000', { cache: 'no-store' });
+      const res = await fetch("/api/admin/users?limit=1000", {
+        cache: "no-store",
+      });
       const result = await res.json();
       if (res.ok && result.success) {
         setUsers(result.data.data);
         setFilteredUsers(result.data.data);
       }
     } catch (error) {
-      console.error('Failed to load users:', error);
+      console.error("Failed to load users:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN") {
+      void loadUsers();
+    }
+  }, [session, loadUsers]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredUsers(users);
+    } else {
+      const filtered = users.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          user.phone.includes(searchQuery) ||
+          user.userId.toLowerCase().includes(searchQuery.toLowerCase()),
+      );
+      setFilteredUsers(filtered);
+    }
+  }, [searchQuery, users]);
 
   const handleUserSelect = (user: User) => {
     setSelectedUser(user);
     setSelectedUserId(user.id);
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      deliveryAddress: user.address
+      deliveryAddress: user.address,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) {
-      toast.error('Please select a user first');
+      toast.error("Please select a user first");
       return;
     }
- 
+
     if (formData.quantity > selectedUser.remainingQuota) {
-      toast.error(`User only has ${selectedUser.remainingQuota} cylinders remaining in their quota`);
+      toast.error(
+        `User only has ${selectedUser.remainingQuota} cylinders remaining in their quota`,
+      );
       return;
     }
 
@@ -113,32 +118,32 @@ export default function NewBookingPage() {
         receiverPhone: formData.receiverPhone || selectedUser.phone,
         expectedDate: formData.expectedDate || null,
         notes: formData.notes,
-        status: 'APPROVED' // Admin-created bookings are auto-approved
+        status: "APPROVED", // Admin-created bookings are auto-approved
       };
 
-      const res = await fetch('/api/admin/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const res = await fetch("/api/admin/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       const result = await res.json();
       if (res.ok && result.success) {
-        toast.success('Booking created successfully');
-        router.push('/admin/bookings');
+        toast.success("Booking created successfully");
+        router.push("/admin/bookings");
       } else {
-        toast.error(result.message || 'Failed to create booking');
+        toast.error(result.message || "Failed to create booking");
       }
     } catch (error) {
-      console.error('Failed to create booking:', error);
-      toast.error('Failed to create booking');
+      console.error("Failed to create booking:", error);
+      toast.error("Failed to create booking");
     } finally {
       setLoading(false);
     }
   };
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -155,8 +160,12 @@ export default function NewBookingPage() {
               Back to Bookings
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Create New Booking</h1>
-              <p className="text-sm text-gray-600">Manually create a new gas cylinder booking</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Create New Booking
+              </h1>
+              <p className="text-sm text-gray-600">
+                Manually create a new gas cylinder booking
+              </p>
             </div>
           </div>
 
@@ -190,20 +199,30 @@ export default function NewBookingPage() {
                         key={user.id}
                         onClick={() => handleUserSelect(user)}
                         className={`p-3 cursor-pointer hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
-                          selectedUserId === user.id ? 'bg-purple-50 border-purple-200' : ''
+                          selectedUserId === user.id
+                            ? "bg-purple-50 border-purple-200"
+                            : ""
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
-                            <div className="text-sm text-gray-500">{user.phone}</div>
+                            <div className="font-medium text-gray-900">
+                              {user.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {user.email}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {user.phone}
+                            </div>
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-medium text-gray-900">
                               Quota: {user.remainingQuota}
                             </div>
-                            <div className="text-xs text-gray-500">cylinders</div>
+                            <div className="text-xs text-gray-500">
+                              cylinders
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -218,10 +237,19 @@ export default function NewBookingPage() {
                       <span className="font-medium">Selected Customer</span>
                     </div>
                     <div className="mt-2 text-sm text-green-700">
-                      <div><strong>Name:</strong> {selectedUser.name}</div>
-                      <div><strong>Email:</strong> {selectedUser.email}</div>
-                      <div><strong>Phone:</strong> {selectedUser.phone}</div>
-                      <div><strong>Remaining Quota:</strong> {selectedUser.remainingQuota} cylinders</div>
+                      <div>
+                        <strong>Name:</strong> {selectedUser.name}
+                      </div>
+                      <div>
+                        <strong>Email:</strong> {selectedUser.email}
+                      </div>
+                      <div>
+                        <strong>Phone:</strong> {selectedUser.phone}
+                      </div>
+                      <div>
+                        <strong>Remaining Quota:</strong>{" "}
+                        {selectedUser.remainingQuota} cylinders
+                      </div>
                     </div>
                   </div>
                 )}
@@ -247,7 +275,12 @@ export default function NewBookingPage() {
                       min="1"
                       max={selectedUser?.remainingQuota || 12}
                       value={formData.quantity}
-                      onChange={(e) => setFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          quantity: parseInt(e.target.value) || 1,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     />
@@ -262,7 +295,12 @@ export default function NewBookingPage() {
                     </label>
                     <select
                       value={formData.paymentMethod}
-                      onChange={(e) => setFormData(prev => ({ ...prev, paymentMethod: e.target.value as 'COD' | 'UPI' }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          paymentMethod: e.target.value as "COD" | "UPI",
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     >
@@ -281,7 +319,12 @@ export default function NewBookingPage() {
                       type="text"
                       placeholder="Leave empty to use customer name"
                       value={formData.receiverName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, receiverName: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          receiverName: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
@@ -294,7 +337,12 @@ export default function NewBookingPage() {
                       type="tel"
                       placeholder="Leave empty to use customer phone"
                       value={formData.receiverPhone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, receiverPhone: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          receiverPhone: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
@@ -307,7 +355,12 @@ export default function NewBookingPage() {
                   <input
                     type="date"
                     value={formData.expectedDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, expectedDate: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        expectedDate: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -322,7 +375,12 @@ export default function NewBookingPage() {
                   <textarea
                     rows={3}
                     value={formData.deliveryAddress}
-                    onChange={(e) => setFormData(prev => ({ ...prev, deliveryAddress: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        deliveryAddress: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Delivery address (defaults to customer address)"
                     required
@@ -336,7 +394,12 @@ export default function NewBookingPage() {
                   <textarea
                     rows={3}
                     value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Additional notes or special instructions..."
                   />

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { z } from "zod";
 
 // Validation schema
 const validateTokenSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
+  token: z.string().min(1, "Token is required"),
 });
 
 export async function POST(request: NextRequest) {
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest) {
     const validationResult = validateTokenSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Validation failed', 
-          errors: validationResult.error.issues 
+        {
+          success: false,
+          message: "Validation failed",
+          errors: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -38,31 +38,30 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'INVALID_TOKEN',
-          message: 'Invalid or expired reset token' 
+        {
+          success: false,
+          error: "INVALID_TOKEN",
+          message: "Invalid or expired reset token",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: 'Token is valid' 
+      {
+        success: true,
+        message: "Token is valid",
       },
-      { status: 200 }
+      { status: 200 },
     );
-
   } catch (error) {
-    console.error('Validate reset token error:', error);
+    console.error("Validate reset token error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: 'Internal server error' 
+      {
+        success: false,
+        message: "Internal server error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,17 +1,17 @@
-import { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from './db';
-import { verifyPassword } from './utils';
-import { UserRole } from '@prisma/client';
+import { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { prisma } from "./db";
+import { verifyPassword } from "./utils";
+import { UserRole } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: 'credentials',
+      name: "credentials",
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-        admin: { label: 'Admin Login', type: 'text', placeholder: 'false' },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        admin: { label: "Admin Login", type: "text", placeholder: "false" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email },
         });
 
         if (!user) {
@@ -28,31 +28,38 @@ export const authOptions: NextAuthOptions = {
 
         const isValidPassword = await verifyPassword(
           credentials.password,
-          user.password || ''
+          user.password || "",
         );
 
         if (!isValidPassword) {
           return null;
         }
 
-        const isAdminAttempt = String(credentials.admin || '').toLowerCase() === 'true';
+        const isAdminAttempt =
+          String(credentials.admin || "").toLowerCase() === "true";
 
         // If this is an admin login attempt, enforce admin role
-        if (isAdminAttempt && user.role !== 'ADMIN') {
-          throw new Error('Admin account required');
+        if (isAdminAttempt && user.role !== "ADMIN") {
+          throw new Error("Admin account required");
         }
 
         // If this is a user login attempt, block admin accounts from using it
-        if (!isAdminAttempt && user.role === 'ADMIN') {
-          throw new Error('Please use the admin login portal');
+        if (!isAdminAttempt && user.role === "ADMIN") {
+          throw new Error("Please use the admin login portal");
         }
 
         // Bypass email verification only when explicitly allowed
-        const bypassEmailVerification = process.env.BYPASS_EMAIL_VERIFICATION === 'true';
+        const bypassEmailVerification =
+          process.env.BYPASS_EMAIL_VERIFICATION === "true";
 
         // For non-admin logins, enforce email verification unless bypassed
-        if (!isAdminAttempt && user.role !== 'ADMIN' && !user.emailVerified && !bypassEmailVerification) {
-          throw new Error('Please verify your email address before logging in');
+        if (
+          !isAdminAttempt &&
+          user.role !== "ADMIN" &&
+          !user.emailVerified &&
+          !bypassEmailVerification
+        ) {
+          throw new Error("Please verify your email address before logging in");
         }
 
         return {
@@ -63,11 +70,11 @@ export const authOptions: NextAuthOptions = {
           image: user.image || undefined,
           emailVerified: !!user.emailVerified,
         };
-      }
-    })
+      },
+    }),
   ],
   session: {
-    strategy: 'jwt',
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
@@ -75,7 +82,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
-        (token as unknown as { emailVerified?: boolean }).emailVerified = (user as unknown as { emailVerified?: boolean }).emailVerified === true;
+        (token as unknown as { emailVerified?: boolean }).emailVerified =
+          (user as unknown as { emailVerified?: boolean }).emailVerified ===
+          true;
       }
       return token;
     },
@@ -83,22 +92,24 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         session.user.id = token.id as string;
         session.user.role = token.role as UserRole;
-        (session.user as unknown as { emailVerified?: boolean }).emailVerified = (token as unknown as { emailVerified?: boolean }).emailVerified === true;
+        (session.user as unknown as { emailVerified?: boolean }).emailVerified =
+          (token as unknown as { emailVerified?: boolean }).emailVerified ===
+          true;
       }
       return session;
     },
     async redirect({ url, baseUrl }) {
       // Allows relative callback URLs
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
       // Allows callback URLs on the same origin
       else if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
-    }
+    },
   },
   pages: {
-    signIn: '/login',
-    error: '/login',
+    signIn: "/login",
+    error: "/login",
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
+  debug: process.env.NODE_ENV === "development",
 };

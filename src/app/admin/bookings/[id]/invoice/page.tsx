@@ -1,21 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { formatCurrency } from '@/lib/utils';
-import { 
-  ArrowLeft, 
-  Download, 
-  Mail, 
-  Phone,
-  Calendar,
-  DollarSign,
-  User,
-  MapPin,
-  Printer
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import { formatCurrency } from "@/lib/utils";
+import { ArrowLeft, Download, Mail, User, MapPin, Printer } from "lucide-react";
 
 type Booking = {
   id: string;
@@ -24,7 +14,7 @@ type Booking = {
   userEmail: string;
   userPhone: string;
   userAddress: string;
-  paymentMethod: 'COD' | 'UPI';
+  paymentMethod: "COD" | "UPI";
   quantity: number;
   receiverName?: string | null;
   receiverPhone?: string | null;
@@ -34,52 +24,50 @@ type Booking = {
   deliveryDate?: string | null;
   deliveredAt?: string | null;
   notes?: string | null;
-  paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
+  paymentStatus?: "PENDING" | "SUCCESS" | "FAILED";
   paymentAmount?: number;
   createdAt: string;
 };
-
-
 
 export default function InvoicePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const bookingId = params.id as string;
-  
+
   const [booking, setBooking] = useState<Booking | null>(null);
 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
-    else if (session.user.role !== 'ADMIN') router.push('/user');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
+    else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
-  useEffect(() => {
-    if (session?.user?.role === 'ADMIN' && bookingId) {
-      loadData();
-    }
-  }, [session, bookingId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const bookingRes = await fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' });
+      const bookingRes = await fetch(`/api/bookings/${bookingId}`, {
+        cache: "no-store",
+      });
 
       if (bookingRes.ok) {
         const bookingData = await bookingRes.json();
         setBooking(bookingData.data);
       }
-
-
     } catch (error) {
-      console.error('Failed to load data:', error);
+      console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId]);
+
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN" && bookingId) {
+      void loadData();
+    }
+  }, [session, bookingId, loadData]);
 
   const handlePrint = () => {
     window.print();
@@ -89,29 +77,31 @@ export default function InvoicePage() {
     try {
       setLoading(true);
       const res = await fetch(`/api/admin/bookings/${bookingId}/invoice`);
-      
+
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
         a.download = `invoice-${bookingId.slice(-8).toUpperCase()}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        console.log('PDF downloaded successfully!');
-        
+        console.log("PDF downloaded successfully!");
+
         // Show success message
-        alert('PDF downloaded successfully! Check your Downloads folder.');
+        alert("PDF downloaded successfully! Check your Downloads folder.");
       } else {
         const errorData = await res.json();
-        console.error('Download failed:', errorData);
-        alert(`Failed to download PDF: ${errorData.message || 'Unknown error'}`);
+        console.error("Download failed:", errorData);
+        alert(
+          `Failed to download PDF: ${errorData.message || "Unknown error"}`,
+        );
       }
     } catch (error) {
-      console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF. Please try again.');
+      console.error("Failed to download PDF:", error);
+      alert("Failed to download PDF. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -120,18 +110,18 @@ export default function InvoicePage() {
   const sendInvoiceEmail = async () => {
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}/send-invoice`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
-      
+
       if (res.ok) {
-        alert('Invoice sent to customer email successfully!');
+        alert("Invoice sent to customer email successfully!");
       } else {
-        alert('Failed to send invoice email');
+        alert("Failed to send invoice email");
       }
     } catch (error) {
-      console.error('Failed to send invoice email:', error);
-      alert('Failed to send invoice email');
+      console.error("Failed to send invoice email:", error);
+      alert("Failed to send invoice email");
     }
   };
 
@@ -141,15 +131,15 @@ export default function InvoicePage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   if (loading) {
     return (
@@ -176,10 +166,14 @@ export default function InvoicePage() {
         <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
           <div className="px-4 py-6 sm:px-0">
             <div className="text-center py-12">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Data Not Found</h2>
-              <p className="text-gray-600 mb-4">Unable to load booking or company information.</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Data Not Found
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Unable to load booking or company information.
+              </p>
               <button
-                onClick={() => router.push('/admin/bookings')}
+                onClick={() => router.push("/admin/bookings")}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
               >
                 Back to Bookings
@@ -207,8 +201,12 @@ export default function InvoicePage() {
                 Back to Booking
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Invoice #{booking.id}</h1>
-                <p className="text-sm text-gray-600">Generate and manage invoice for this booking</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Invoice #{booking.id}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  Generate and manage invoice for this booking
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -223,9 +221,9 @@ export default function InvoicePage() {
                 onClick={handleDownloadPDF}
                 disabled={loading}
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  loading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700'
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-green-600 hover:bg-green-700"
                 } text-white`}
               >
                 {loading ? (
@@ -256,7 +254,9 @@ export default function InvoicePage() {
             <div className="p-8 border-b border-gray-200">
               <div className="flex justify-between items-start">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900">Gas Agency System</h2>
+                  <h2 className="text-3xl font-bold text-gray-900">
+                    Gas Agency System
+                  </h2>
                   <div className="mt-2 space-y-1 text-gray-600">
                     <p>123 Main Street, City, State 12345</p>
                     <p>Phone: +91-1234567890</p>
@@ -267,9 +267,15 @@ export default function InvoicePage() {
                 <div className="text-right">
                   <h1 className="text-2xl font-bold text-gray-900">INVOICE</h1>
                   <div className="mt-2 space-y-1 text-gray-600">
-                    <p><strong>Invoice #:</strong> {booking.id}</p>
-                    <p><strong>Date:</strong> {formatDate(booking.createdAt)}</p>
-                    <p><strong>Due Date:</strong> {formatDate(booking.createdAt)}</p>
+                    <p>
+                      <strong>Invoice #:</strong> {booking.id}
+                    </p>
+                    <p>
+                      <strong>Date:</strong> {formatDate(booking.createdAt)}
+                    </p>
+                    <p>
+                      <strong>Due Date:</strong> {formatDate(booking.createdAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -303,7 +309,9 @@ export default function InvoicePage() {
                     <p>{booking.userAddress}</p>
                     <p>Phone: {booking.receiverPhone || booking.userPhone}</p>
                     {booking.expectedDate && (
-                      <p>Expected Delivery: {formatDate(booking.expectedDate)}</p>
+                      <p>
+                        Expected Delivery: {formatDate(booking.expectedDate)}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -315,21 +323,35 @@ export default function InvoicePage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Description</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Quantity</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Unit Price</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Amount</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                      Description
+                    </th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                      Quantity
+                    </th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                      Unit Price
+                    </th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                      Amount
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="border-b border-gray-100">
                     <td className="py-4 px-4">
                       <div>
-                        <p className="font-medium text-gray-900">Gas Cylinder</p>
-                        <p className="text-sm text-gray-600">LPG Gas Cylinder (14.2 kg)</p>
+                        <p className="font-medium text-gray-900">
+                          Gas Cylinder
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          LPG Gas Cylinder (14.2 kg)
+                        </p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-right text-gray-900">{booking.quantity}</td>
+                    <td className="py-4 px-4 text-right text-gray-900">
+                      {booking.quantity}
+                    </td>
                     <td className="py-4 px-4 text-right text-gray-900">
                       {formatCurrency(1100)}
                     </td>
@@ -366,15 +388,27 @@ export default function InvoicePage() {
 
               {/* Payment Information */}
               <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold text-gray-900 mb-2">Payment Information</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  Payment Information
+                </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
                   <div>
-                    <p><strong>Payment Method:</strong> {booking.paymentMethod}</p>
-                    <p><strong>Payment Status:</strong> {booking.paymentStatus || 'PENDING'}</p>
+                    <p>
+                      <strong>Payment Method:</strong> {booking.paymentMethod}
+                    </p>
+                    <p>
+                      <strong>Payment Status:</strong>{" "}
+                      {booking.paymentStatus || "PENDING"}
+                    </p>
                   </div>
                   <div>
-                    <p><strong>Booking Status:</strong> {booking.status}</p>
-                    <p><strong>Requested On:</strong> {formatDate(booking.requestedAt)}</p>
+                    <p>
+                      <strong>Booking Status:</strong> {booking.status}
+                    </p>
+                    <p>
+                      <strong>Requested On:</strong>{" "}
+                      {formatDate(booking.requestedAt)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -389,11 +423,15 @@ export default function InvoicePage() {
 
               {/* Terms and Conditions */}
               <div className="mt-8 pt-6 border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-2">Terms & Conditions</h4>
+                <h4 className="font-semibold text-gray-900 mb-2">
+                  Terms & Conditions
+                </h4>
                 <ul className="text-sm text-gray-600 space-y-1">
                   <li>• Payment is due upon delivery for COD orders</li>
                   <li>• UPI payments must be completed before delivery</li>
-                  <li>• Delivery will be made within 24-48 hours of approval</li>
+                  <li>
+                    • Delivery will be made within 24-48 hours of approval
+                  </li>
                   <li>• Cylinders must be returned in good condition</li>
                   <li>• This invoice is valid for 30 days</li>
                 </ul>
@@ -409,7 +447,9 @@ export default function InvoicePage() {
           .print\\:shadow-none {
             box-shadow: none !important;
           }
-          header, nav, button {
+          header,
+          nav,
+          button {
             display: none !important;
           }
           main {

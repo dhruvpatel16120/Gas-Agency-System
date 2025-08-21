@@ -1,183 +1,136 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { Button, Input, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui';
-import { formatDate, getStatusColor } from '@/lib/utils';
-import { User, Mail, Phone, MapPin, Save, ArrowLeft } from 'lucide-react';
-import UserNavbar from '@/components/UserNavbar';
-import { toast } from 'react-hot-toast';
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import {
+  Button,
+  Input,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui";
+import { formatDate, getStatusColor } from "@/lib/utils";
+import { User, Mail, Phone, MapPin, ArrowLeft } from "lucide-react";
+import UserNavbar from "@/components/UserNavbar";
+ 
 
 export default function UserProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  
   const [memberSince, setMemberSince] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
     remainingQuota: 0, // Added for quota display
   });
   const [bookingsLoading, setBookingsLoading] = useState(true);
-  const [bookings, setBookings] = useState<Array<{
-    id: string;
-    status: 'PENDING' | 'APPROVED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
-    paymentMethod: 'COD' | 'UPI';
-    quantity?: number | null;
-    createdAt: string;
-    expectedDate?: string | null;
-    deliveryDate?: string | null;
-    paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED';
-  }>>([]);
+  const [bookings, setBookings] = useState<
+    Array<{
+      id: string;
+      status:
+        | "PENDING"
+        | "APPROVED"
+        | "OUT_FOR_DELIVERY"
+        | "DELIVERED"
+        | "CANCELLED";
+      paymentMethod: "COD" | "UPI";
+      quantity?: number | null;
+      createdAt: string;
+      expectedDate?: string | null;
+      deliveryDate?: string | null;
+      paymentStatus?: "PENDING" | "SUCCESS" | "FAILED";
+    }>
+  >([]);
 
   // Helper function to determine which action buttons to show for recent bookings
-  const getProfileBookingActions = (booking: any) => {
+  const getProfileBookingActions = (booking: {
+    paymentMethod: "COD" | "UPI";
+    status: "PENDING" | "APPROVED" | "OUT_FOR_DELIVERY" | "DELIVERED" | "CANCELLED";
+    paymentStatus?: "PENDING" | "SUCCESS" | "FAILED";
+    id: string;
+  }) => {
     const actions: string[] = [];
-    
+
     // Always show Track button
-    actions.push('track');
-    
+    actions.push("track");
+
     // Show Pay button only for UPI payments that are not cancelled and payment is pending
-    if (booking.paymentMethod === 'UPI' && 
-        booking.status !== 'CANCELLED' && 
-        booking.paymentStatus === 'PENDING') {
-      actions.push('pay');
+    if (
+      booking.paymentMethod === "UPI" &&
+      booking.status !== "CANCELLED" &&
+      booking.paymentStatus === "PENDING"
+    ) {
+      actions.push("pay");
     }
-    
+
     // Show Cancel button for PENDING or APPROVED status
-    if (['PENDING', 'APPROVED'].includes(booking.status)) {
-      actions.push('cancel');
+    if (["PENDING", "APPROVED"].includes(booking.status)) {
+      actions.push("cancel");
     }
-    
+
     return actions;
   };
 
-  useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-
-    // Load user data
-    loadUserProfile();
-    void loadRecentBookings();
-  }, [session, status, router]);
-
-  const loadUserProfile = async () => {
+  const loadUserProfileCb = useCallback(async () => {
     try {
-      const response = await fetch('/api/user/profile');
+      const response = await fetch("/api/user/profile");
       if (response.ok) {
         const json = await response.json();
         const userData = json.data || {};
         setFormData({
-          name: userData.name || '',
-          email: userData.email || '',
-          phone: userData.phone || '',
-          address: userData.address || '',
-          remainingQuota: userData.remainingQuota || 0, // Load remaining quota
+          name: userData.name || "",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          address: userData.address || "",
+          remainingQuota: userData.remainingQuota || 0,
         });
         setMemberSince(userData.createdAt || null);
       }
-    } catch (error) {
-      console.error('Failed to load profile:', error);
+    } catch {
+      // no-op
     }
-  };
+  }, []);
 
-  const loadRecentBookings = async () => {
+  const loadRecentBookingsCb = useCallback(async () => {
     try {
       setBookingsLoading(true);
-      const response = await fetch('/api/bookings?page=1&limit=5');
-      const json = await response.json();
-      if (json?.success) {
-        const list = (json.data?.data || []) as typeof bookings;
-        setBookings(list);
+      const response = await fetch("/api/bookings?page=1&limit=5");
+      if (response.ok) {
+        const json = await response.json();
+        if (json?.success) {
+          const list = (json.data?.data || []) as typeof bookings;
+          setBookings(list);
+        }
       }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to load bookings:', error);
     } finally {
       setBookingsLoading(false);
     }
-  };
+  }, []);
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
-    } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
-    }
-
-    // Email is read-only and not editable
-
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^[6-9]\d{9}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Please enter a valid 10-digit phone number';
-    }
-
-    if (!formData.address.trim()) {
-      newErrors.address = 'Address is required';
-    } else if (formData.address.trim().length < 10) {
-      newErrors.address = 'Address must be at least 10 characters';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
+  useEffect(() => {
+    if (status === "loading") return;
+    if (!session) {
+      router.push("/login");
       return;
     }
 
-    setLoading(true);
-    setErrors({});
+    console.log("Session loaded:", session);
+    console.log("User ID:", session.user.id);
 
-    try {
-      const response = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          phone: formData.phone.replace(/\s/g, ''),
-          address: formData.address.trim(),
-        }),
-      });
+    // Load user data
+    loadUserProfileCb();
+    void loadRecentBookingsCb();
+  }, [session, status, router, loadUserProfileCb, loadRecentBookingsCb]);
 
-      const data = await response.json();
+  // Removed unused form handlers to satisfy linter
 
-      if (response.ok) {
-        toast.success('Profile updated successfully!');
-      } else {
-        toast.error(data.message || 'Failed to update profile');
-      }
-    } catch (error) {
-      console.error('Update profile error:', error);
-      toast.error('An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -204,26 +157,37 @@ export default function UserProfilePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Gas Cylinder Quota</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Gas Cylinder Quota
+                  </h2>
                   <p className="text-gray-600">
-                    You have <span className="font-semibold text-blue-600 text-lg">{formData.remainingQuota || 0}</span> cylinder(s) remaining this year
+                    You have{" "}
+                    <span className="font-semibold text-blue-600 text-lg">
+                      {formData.remainingQuota || 0}
+                    </span>{" "}
+                    cylinder(s) remaining this year
                   </p>
-                  {formData.remainingQuota !== undefined && formData.remainingQuota <= 2 && (
-                    <p className="text-sm text-yellow-700 mt-2">
-                      ⚠️ You're running low on cylinders. Only {formData.remainingQuota} remaining this year.
-                    </p>
-                  )}
-                  {formData.remainingQuota !== undefined && formData.remainingQuota > 0 && (
-                    <button
-                      onClick={() => router.push('/user/book')}
-                      className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Book New Cylinder
-                    </button>
-                  )}
+                  {formData.remainingQuota !== undefined &&
+                    formData.remainingQuota <= 2 && (
+                      <p className="text-sm text-yellow-700 mt-2">
+                        ⚠️ You&apos;re running low on cylinders. Only{" "}
+                        {formData.remainingQuota} remaining this year.
+                      </p>
+                    )}
+                  {formData.remainingQuota !== undefined &&
+                    formData.remainingQuota > 0 && (
+                      <button
+                        onClick={() => router.push("/user/book")}
+                        className="mt-3 inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        Book New Cylinder
+                      </button>
+                    )}
                 </div>
                 <div className="text-right">
-                  <div className="text-4xl font-bold text-blue-600">{formData.remainingQuota || 0}</div>
+                  <div className="text-4xl font-bold text-blue-600">
+                    {formData.remainingQuota || 0}
+                  </div>
                   <div className="text-sm text-gray-500">Remaining</div>
                   <div className="text-xs text-gray-400 mt-1">of 12 total</div>
                 </div>
@@ -234,7 +198,7 @@ export default function UserProfilePage() {
           {/* Back Button */}
           <div className="mb-6">
             <button
-              onClick={() => router.push('/user')}
+              onClick={() => router.push("/user")}
               className="inline-flex items-center text-sm text-gray-600 hover:text-gray-700 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -293,7 +257,7 @@ export default function UserProfilePage() {
                   <Button
                     type="button"
                     className="w-full"
-                    onClick={() => router.push('/user/profile/edit')}
+                    onClick={() => router.push("/user/profile/edit")}
                   >
                     Edit Profile
                   </Button>
@@ -313,11 +277,17 @@ export default function UserProfilePage() {
                   ) : (
                     <div className="divide-y divide-gray-200">
                       {bookings.map((b) => (
-                        <div key={b.id} className="py-3 flex items-center justify-between gap-3">
+                        <div
+                          key={b.id}
+                          className="py-3 flex items-center justify-between gap-3"
+                        >
                           <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">Booking #{b.id.slice(0, 8)}</p>
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              Booking #{b.id.slice(0, 8)}
+                            </p>
                             <p className="text-xs text-gray-600">
-                              {formatDate(b.createdAt)} · Qty: {b.quantity ?? 1} · {b.paymentMethod}
+                              {formatDate(b.createdAt)} · Qty: {b.quantity ?? 1}{" "}
+                              · {b.paymentMethod}
                             </p>
                           </div>
                           <div className="flex items-center gap-3">
@@ -328,34 +298,42 @@ export default function UserProfilePage() {
                             </span>
                             {getProfileBookingActions(b).map((action) => {
                               switch (action) {
-                                case 'track':
+                                case "track":
                                   return (
                                     <button
                                       key="track"
-                                      onClick={() => router.push(`/user/track/${b.id}`)}
+                                      onClick={() =>
+                                        router.push(`/user/track/${b.id}`)
+                                      }
                                       className="text-xs text-blue-600 hover:text-blue-700"
                                     >
                                       Track
                                     </button>
                                   );
-                                case 'pay':
+                                case "pay":
                                   return (
                                     <button
                                       key="pay"
-                                      onClick={() => router.push(`/user/pay/upi/${b.id}`)}
+                                      onClick={() =>
+                                        router.push(`/user/pay/upi/${b.id}`)
+                                      }
                                       className="text-xs text-green-600 hover:text-green-700 ml-2"
                                     >
                                       Pay
                                     </button>
                                   );
-                                case 'cancel':
+                                case "cancel":
                                   return (
                                     <button
                                       key="cancel"
                                       onClick={() => {
-                                        if (confirm('Are you sure you want to cancel this booking?')) {
+                                        if (
+                                          confirm(
+                                            "Are you sure you want to cancel this booking?",
+                                          )
+                                        ) {
                                           // Handle cancellation - could navigate to bookings page or show modal
-                                          router.push('/user/bookings');
+                                          router.push("/user/bookings");
                                         }
                                       }}
                                       className="text-xs text-red-600 hover:text-red-700 ml-2"
@@ -375,7 +353,7 @@ export default function UserProfilePage() {
                 </CardContent>
                 <CardFooter>
                   <button
-                    onClick={() => router.push('/user/bookings')}
+                    onClick={() => router.push("/user/bookings")}
                     className="text-sm text-blue-600 hover:text-blue-700"
                   >
                     View all bookings
@@ -397,12 +375,16 @@ export default function UserProfilePage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-700">Role</p>
-                    <p className="text-sm text-gray-600 capitalize">{session.user.role.toLowerCase()}</p>
+                    <p className="text-sm text-gray-600 capitalize">
+                      {session.user.role.toLowerCase()}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Member Since</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      Member Since
+                    </p>
                     <p className="text-sm text-gray-600">
-                      {memberSince ? formatDate(memberSince) : '—'}
+                      {memberSince ? formatDate(memberSince) : "—"}
                     </p>
                   </div>
                 </CardContent>
@@ -415,18 +397,26 @@ export default function UserProfilePage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <button
-                    onClick={() => router.push('/user')}
+                    onClick={() => router.push("/user")}
                     className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    <h3 className="font-semibold text-gray-900">Back to Dashboard</h3>
-                    <p className="text-sm text-gray-600">Return to main dashboard</p>
+                    <h3 className="font-semibold text-gray-900">
+                      Back to Dashboard
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Return to main dashboard
+                    </p>
                   </button>
                   <button
-                    onClick={() => router.push('/user/bookings')}
+                    onClick={() => router.push("/user/bookings")}
                     className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                   >
-                    <h3 className="font-semibold text-gray-900">View Bookings</h3>
-                    <p className="text-sm text-gray-600">Check your booking history</p>
+                    <h3 className="font-semibold text-gray-900">
+                      View Bookings
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Check your booking history
+                    </p>
                   </button>
                 </CardContent>
               </Card>

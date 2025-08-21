@@ -1,11 +1,15 @@
-import { NextRequest } from 'next/server';
-import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { withMiddleware, successResponse, parseRequestBody } from '@/lib/api-middleware';
-import { bookingSchema, paginationSchema } from '@/lib/validation';
-import { ConflictError, NotFoundError } from '@/lib/error-handler';
-import { sendBookingRequestEmail } from '@/lib/email';
-import { BookingStatus, PaymentMethod } from '@prisma/client';
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/db";
+import {
+  withMiddleware,
+  successResponse,
+  parseRequestBody,
+} from "@/lib/api-middleware";
+import { bookingSchema, paginationSchema } from "@/lib/validation";
+import { ConflictError, NotFoundError } from "@/lib/error-handler";
+import { sendBookingRequestEmail } from "@/lib/email";
+import { Prisma, BookingStatus, PaymentMethod } from "@prisma/client";
 
 const listQuerySchema = z.object({
   page: paginationSchema.shape.page,
@@ -13,42 +17,66 @@ const listQuerySchema = z.object({
   status: z
     .string()
     .optional()
-    .refine((val) => !val || ['PENDING', 'APPROVED', 'DELIVERED', 'CANCELLED'].includes(val), 'Invalid status'),
+    .refine(
+      (val) =>
+        !val || ["PENDING", "APPROVED", "DELIVERED", "CANCELLED"].includes(val),
+      "Invalid status",
+    ),
   paymentMethod: z
     .string()
     .optional()
-    .refine((val) => !val || ['COD', 'UPI'].includes(val), 'Invalid payment method'),
-  admin: z
-    .string()
-    .optional(),
+    .refine(
+      (val) => !val || ["COD", "UPI"].includes(val),
+      "Invalid payment method",
+    ),
+  admin: z.string().optional(),
 });
 
-async function createBookingHandler(request: NextRequest, context?: Record<string, unknown>) {
+async function createBookingHandler(
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) {
   const session = context?.session as { user: { id: string } } | undefined;
   if (!session?.user?.id) {
-    throw new NotFoundError('User session not found');
+    throw new NotFoundError("User session not found");
   }
 
   const body = await parseRequestBody(request);
-  const { paymentMethod, quantity, receiverName, receiverPhone, expectedDate, notes } = bookingSchema.parse(body);
+  const {
+    paymentMethod,
+    quantity,
+    receiverName,
+    receiverPhone,
+    expectedDate,
+    notes,
+  } = bookingSchema.parse(body);
 
   // Load user with minimal fields
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, phone: true, address: true, remainingQuota: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      address: true,
+      remainingQuota: true,
+    },
   });
 
   if (!user) {
-    throw new NotFoundError('User not found');
+    throw new NotFoundError("User not found");
   }
 
   // Fixed pricing
 
   // Create booking within transaction and atomically decrement quota if available
-  const booking = await prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Validate that user has enough quota for the requested quantity
     if (user.remainingQuota < quantity) {
-      throw new ConflictError(`Insufficient quota. You have ${user.remainingQuota} cylinder(s) remaining, but requested ${quantity}.`);
+      throw new ConflictError(
+        `Insufficient quota. You have ${user.remainingQuota} cylinder(s) remaining, but requested ${quantity}.`,
+      );
     }
 
     // Atomically decrement by the actual quantity
@@ -58,52 +86,53 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
     });
 
     if (updated.count === 0) {
-      throw new ConflictError('Insufficient quota to create a booking');
+      throw new ConflictError("Insufficient quota to create a booking");
     }
 
-    const createData: any = {
-      userId: user.id,
-      userName: user.name,
-      paymentMethod: paymentMethod as PaymentMethod,
-      status: 'PENDING',
-      notes: notes || undefined,
-    };
-    if (typeof quantity === 'number') createData.quantity = quantity;
-    if (receiverName) createData.receiverName = receiverName;
-    if (receiverPhone) createData.receiverPhone = receiverPhone;
-    if (expectedDate) createData.expectedDate = new Date(expectedDate);
-
     const created = await tx.booking.create({
-      data: createData,
+      data: {
+        userId: user.id,
+        userName: user.name,
+        paymentMethod: paymentMethod as PaymentMethod,
+        status: "PENDING",
+        notes: notes || undefined,
+        ...(typeof quantity === "number" ? { quantity } : {}),
+        ...(receiverName ? { receiverName } : {}),
+        ...(receiverPhone ? { receiverPhone } : {}),
+        ...(expectedDate ? { expectedDate: new Date(expectedDate) } : {}),
+      },
     });
 
     // Seed initial tracking events
-    await (tx as any).bookingEvent.createMany({
+    await tx.bookingEvent.createMany({
       data: [
         {
           bookingId: created.id,
-          status: 'PENDING',
-          title: 'Started',
-          description: 'Booking process started.',
+          status: "PENDING",
+          title: "Started",
+          description: "Booking process started.",
         },
         {
           bookingId: created.id,
-          status: 'PENDING',
-          title: 'Booking Requested',
-          description: 'Your booking request was submitted and is pending approval.',
+          status: "PENDING",
+          title: "Booking Requested",
+          description:
+            "Your booking request was submitted and is pending approval.",
         },
       ],
     });
 
     // Create payment record (PENDING) and compute amount
     const unitPrice = 1100; // Fixed price per cylinder
-    const amountInRupees = unitPrice * (typeof quantity === 'number' ? quantity : 1);
-    await (tx as any).payment.create({
+    const amountInRupees =
+      unitPrice * (typeof quantity === "number" ? quantity : 1);
+    await tx.payment.create({
       data: {
         bookingId: created.id,
         amount: amountInRupees,
         method: paymentMethod as PaymentMethod,
-        status: 'PENDING',
+        status: "PENDING",
+        createdAt: new Date(),
       },
     });
 
@@ -126,27 +155,33 @@ async function createBookingHandler(request: NextRequest, context?: Record<strin
       userEmail: user.email,
       userPhone: user.phone,
       userAddress: user.address,
-    }
+    },
   });
 
-  return successResponse(booking, 'Booking created successfully', 201);
+  return successResponse(booking, "Booking created successfully", 201);
 }
 
-async function listBookingsHandler(request: NextRequest, context?: Record<string, unknown>) {
-  const session = context?.session as { user: { id: string; role?: 'USER' | 'ADMIN' } } | undefined;
+async function listBookingsHandler(
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const session = context?.session as
+    | { user: { id: string; role?: "USER" | "ADMIN" } }
+    | undefined;
   if (!session?.user?.id) {
-    throw new NotFoundError('User session not found');
+    throw new NotFoundError("User session not found");
   }
 
   const url = new URL(request.url);
   const queryParams = Object.fromEntries(url.searchParams.entries());
-  const { page, limit, status, paymentMethod, admin } = listQuerySchema.parse(queryParams);
+  const { page, limit, status, paymentMethod, admin } =
+    listQuerySchema.parse(queryParams);
 
   const whereClause: Record<string, unknown> = {};
 
-  const isAdminQuery = admin === '1' || admin === 'true';
+  const isAdminQuery = admin === "1" || admin === "true";
   if (isAdminQuery) {
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.role !== "ADMIN") {
       // Non-admin attempting admin view falls back to own bookings
       whereClause.userId = session.user.id;
     }
@@ -164,15 +199,15 @@ async function listBookingsHandler(request: NextRequest, context?: Record<string
   const total = await prisma.booking.count({ where: whereClause });
   const bookingsRaw = await prisma.booking.findMany({
     where: whereClause,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { createdAt: "desc" },
     skip: (page - 1) * limit,
     take: limit,
     include: {
-      payments: { orderBy: { createdAt: 'desc' }, take: 1 }
-    }
+      payments: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
   });
 
-  const bookings = bookingsRaw.map((b: any) => ({
+  const bookings = bookingsRaw.map((b) => ({
     id: b.id,
     userId: b.userId,
     userName: b.userName,
@@ -191,7 +226,9 @@ async function listBookingsHandler(request: NextRequest, context?: Record<string
     notes: b.notes,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
-    paymentStatus: (b.payments?.[0]?.status) || (b.status === 'CANCELLED' ? 'CANCELLED' : 'PENDING'),
+    paymentStatus:
+      b.payments?.[0]?.status ||
+      (b.status === "CANCELLED" ? "CANCELLED" : "PENDING"),
     paymentAmount: b.payments?.[0]?.amount || null,
   }));
 
@@ -207,13 +244,13 @@ async function listBookingsHandler(request: NextRequest, context?: Record<string
         hasPrev: page > 1,
       },
     },
-    'Bookings retrieved successfully'
+    "Bookings retrieved successfully",
   );
 }
 
 export const POST = withMiddleware(createBookingHandler, {
   requireAuth: true,
-  rateLimit: { type: 'general' },
+  rateLimit: { type: "general" },
   validateContentType: true,
 });
 
@@ -221,5 +258,3 @@ export const GET = withMiddleware(listBookingsHandler, {
   requireAuth: true,
   validateContentType: false,
 });
-
-

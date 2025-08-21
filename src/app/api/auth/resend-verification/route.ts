@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { sendEmailVerification } from '@/lib/email';
-import { z } from 'zod';
-import crypto from 'crypto';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { sendEmailVerification } from "@/lib/email";
+import { z } from "zod";
+import crypto from "crypto";
 
 // Validation schema
 const resendVerificationSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().email("Invalid email address"),
 });
 
 export async function POST(request: NextRequest) {
@@ -17,12 +17,12 @@ export async function POST(request: NextRequest) {
     const validationResult = resendVerificationSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Validation failed', 
-          errors: validationResult.error.issues 
+        {
+          success: false,
+          message: "Validation failed",
+          errors: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -30,34 +30,34 @@ export async function POST(request: NextRequest) {
 
     // Check if user exists
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (!user) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'USER_NOT_FOUND',
-          message: 'No account found with this email address' 
+        {
+          success: false,
+          error: "USER_NOT_FOUND",
+          message: "No account found with this email address",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Check if email is already verified
     if (user.emailVerified) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'ALREADY_VERIFIED',
-          message: 'Email is already verified' 
+        {
+          success: false,
+          error: "ALREADY_VERIFIED",
+          message: "Email is already verified",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Generate new verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationToken = crypto.randomBytes(32).toString("hex");
     const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Update user with new verification token
@@ -73,26 +73,25 @@ export async function POST(request: NextRequest) {
     try {
       await sendEmailVerification(email, user.name, verificationToken);
     } catch (emailError) {
-      console.error('Failed to send verification email:', emailError);
+      console.error("Failed to send verification email:", emailError);
       // Don't fail the request if email fails
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: 'Verification email sent successfully' 
+      {
+        success: true,
+        message: "Verification email sent successfully",
       },
-      { status: 200 }
+      { status: 200 },
     );
-
   } catch (error) {
-    console.error('Resend verification error:', error);
+    console.error("Resend verification error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: 'Internal server error' 
+      {
+        success: false,
+        message: "Internal server error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

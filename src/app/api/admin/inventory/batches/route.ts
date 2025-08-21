@@ -1,11 +1,16 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withMiddleware, parseRequestBody, successResponse } from '@/lib/api-middleware';
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
+import {
+  withMiddleware,
+  parseRequestBody,
+  successResponse,
+} from "@/lib/api-middleware";
+//
 
 async function getBatchesHandler() {
   try {
-    const batches = await (prisma as any).cylinderBatch.findMany({
-      orderBy: { receivedAt: 'desc' },
+    const batches = await prisma.cylinderBatch.findMany({
+      orderBy: { receivedAt: "desc" },
       select: {
         id: true,
         supplier: true,
@@ -13,14 +18,14 @@ async function getBatchesHandler() {
         quantity: true,
         receivedAt: true,
         notes: true,
-        status: true
-      }
+        status: true,
+      },
     });
 
-    return successResponse(batches, 'Batches retrieved successfully');
+    return successResponse(batches, "Batches retrieved successfully");
   } catch (error) {
-    console.error('Failed to fetch batches:', error);
-    return successResponse([], 'Batches retrieved successfully');
+    console.error("Failed to fetch batches:", error);
+    return successResponse([], "Batches retrieved successfully");
   }
 }
 
@@ -34,33 +39,41 @@ async function createBatchHandler(request: NextRequest) {
       receivedAt: string;
     }>(request);
 
-    const batch = await (prisma as any).cylinderBatch.create({
+    const batch = await prisma.cylinderBatch.create({
       data: {
         supplier: body.supplier,
         invoiceNo: body.invoiceNo,
         quantity: body.quantity,
         notes: body.notes,
         receivedAt: new Date(body.receivedAt),
-        status: 'ACTIVE'
-      }
+        status: "ACTIVE",
+      },
     });
 
     // Update stock
-    await (prisma as any).cylinderStock.update({
-      where: { id: 'default' },
+    await prisma.cylinderStock.update({
+      where: { id: "default" },
       data: {
         totalAvailable: {
-          increment: body.quantity
-        }
-      }
+          increment: body.quantity,
+        },
+      },
     });
 
-    return successResponse(batch, 'Batch created successfully');
+    return successResponse(batch, "Batch created successfully");
   } catch (error) {
-    console.error('Failed to create batch:', error);
-    return successResponse(null, 'Failed to create batch', 500 as any);
+    console.error("Failed to create batch:", error);
+    return successResponse({ error: "Failed to create batch" }, "Failed to create batch", 500);
   }
 }
 
-export const GET = withMiddleware(getBatchesHandler, { requireAuth: true, requireAdmin: true, validateContentType: false });
-export const POST = withMiddleware(createBatchHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
+export const GET = withMiddleware(getBatchesHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: false,
+});
+export const POST = withMiddleware(createBatchHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: true,
+});

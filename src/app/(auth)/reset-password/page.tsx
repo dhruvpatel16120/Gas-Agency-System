@@ -1,17 +1,32 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Button, Input, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui';
-import { Flame, Eye, EyeOff, Lock, CheckCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { validatePassword } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Button,
+  Input,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+} from "@/components/ui";
+import {
+  Flame,
+  Eye,
+  EyeOff,
+  Lock,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { validatePassword } from "@/lib/utils";
 
 export default function ResetPasswordPage() {
   const [formData, setFormData] = useState({
-    password: '',
-    confirmPassword: '',
+    password: "",
+    confirmPassword: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -22,16 +37,16 @@ export default function ResetPasswordPage() {
     errors: string[];
   }>({ isValid: false, errors: [] });
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
-  const [token, setToken] = useState<string>('');
+  const [token, setToken] = useState<string>("");
 
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const tokenParam = searchParams.get('token');
+    const tokenParam = searchParams.get("token");
     if (!tokenParam) {
-      toast.error('Invalid reset link');
-      router.push('/forgot-password');
+      toast.error("Invalid reset link");
+      router.push("/forgot-password");
       return;
     }
     setToken(tokenParam);
@@ -40,10 +55,10 @@ export default function ResetPasswordPage() {
 
   const validateResetToken = async (resetToken: string) => {
     try {
-      const response = await fetch('/api/auth/validate-reset-token', {
-        method: 'POST',
+      const response = await fetch("/api/auth/validate-reset-token", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ token: resetToken }),
       });
@@ -52,11 +67,11 @@ export default function ResetPasswordPage() {
         setTokenValid(true);
       } else {
         setTokenValid(false);
-        toast.error('Invalid or expired reset link');
+        toast.error("Invalid or expired reset link");
       }
     } catch {
       setTokenValid(false);
-      toast.error('Failed to validate reset link');
+      toast.error("Failed to validate reset link");
     }
   };
 
@@ -64,15 +79,15 @@ export default function ResetPasswordPage() {
     const newErrors: Record<string, string> = {};
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     } else if (!passwordStrength.isValid) {
-      newErrors.password = 'Password does not meet requirements';
+      newErrors.password = "Password does not meet requirements";
     }
 
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = "Please confirm your password";
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = "Passwords do not match";
     }
 
     setErrors(newErrors);
@@ -86,7 +101,7 @@ export default function ResetPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -95,10 +110,10 @@ export default function ResetPasswordPage() {
     setErrors({});
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           token,
@@ -109,32 +124,32 @@ export default function ResetPasswordPage() {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success('Password reset successfully!');
-        router.push('/login');
+        toast.success("Password reset successfully!");
+        router.push("/login");
       } else {
-        if (data.error === 'INVALID_TOKEN') {
-          toast.error('Invalid or expired reset link');
-          router.push('/forgot-password');
+        if (data.error === "INVALID_TOKEN") {
+          toast.error("Invalid or expired reset link");
+          router.push("/forgot-password");
         } else {
-          toast.error(data.message || 'Failed to reset password');
+          toast.error(data.message || "Failed to reset password");
         }
       }
     } catch (error) {
-      console.error('Reset password error:', error);
-      toast.error('An error occurred. Please try again.');
+      console.error("Reset password error:", error);
+      toast.error("An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+      setErrors((prev) => ({ ...prev, [field]: "" }));
     }
 
-    if (field === 'password') {
+    if (field === "password") {
       handlePasswordChange(value);
     }
   };
@@ -158,8 +173,12 @@ export default function ResetPasswordPage() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
               <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Invalid Reset Link</h1>
-            <p className="text-gray-600">The reset link is invalid or has expired</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Invalid Reset Link
+            </h1>
+            <p className="text-gray-600">
+              The reset link is invalid or has expired
+            </p>
           </div>
 
           <Card className="shadow-xl">
@@ -185,14 +204,18 @@ export default function ResetPasswordPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
             <Flame className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Gas Agency System</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Gas Agency System
+          </h1>
           <p className="text-gray-600">Reset your password</p>
         </div>
 
         {/* Reset Password Card */}
         <Card className="shadow-xl">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-2xl font-semibold text-blue-600">Set New Password</CardTitle>
+            <CardTitle className="text-2xl font-semibold text-blue-600">
+              Set New Password
+            </CardTitle>
             <p className="text-gray-600">Enter your new password below</p>
           </CardHeader>
 
@@ -202,10 +225,12 @@ export default function ResetPasswordPage() {
               <div className="relative">
                 <Input
                   label="New Password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter your new password"
                   value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("password", e.target.value)
+                  }
                   error={errors.password}
                   required
                   autoComplete="new-password"
@@ -216,21 +241,44 @@ export default function ResetPasswordPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-8 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
 
               {/* Password Strength Indicator */}
               {formData.password && (
                 <div className="p-3 bg-gray-50 rounded-md">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Password Requirements:</p>
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Password Requirements:
+                  </p>
                   <div className="space-y-1">
                     {[
-                      { condition: formData.password.length >= 8, text: 'At least 8 characters' },
-                      { condition: /[A-Z]/.test(formData.password), text: 'One uppercase letter' },
-                      { condition: /[a-z]/.test(formData.password), text: 'One lowercase letter' },
-                      { condition: /\d/.test(formData.password), text: 'One number' },
-                      { condition: /[!@#$%^&*(),.?":{}|<>]/.test(formData.password), text: 'One special character' },
+                      {
+                        condition: formData.password.length >= 8,
+                        text: "At least 8 characters",
+                      },
+                      {
+                        condition: /[A-Z]/.test(formData.password),
+                        text: "One uppercase letter",
+                      },
+                      {
+                        condition: /[a-z]/.test(formData.password),
+                        text: "One lowercase letter",
+                      },
+                      {
+                        condition: /\d/.test(formData.password),
+                        text: "One number",
+                      },
+                      {
+                        condition: /[!@#$%^&*(),.?":{}|<>]/.test(
+                          formData.password,
+                        ),
+                        text: "One special character",
+                      },
                     ].map((req, index) => (
                       <div key={index} className="flex items-center gap-2">
                         {req.condition ? (
@@ -238,7 +286,9 @@ export default function ResetPasswordPage() {
                         ) : (
                           <AlertCircle className="w-4 h-4 text-red-500" />
                         )}
-                        <span className={`text-sm ${req.condition ? 'text-green-600' : 'text-red-600'}`}>
+                        <span
+                          className={`text-sm ${req.condition ? "text-green-600" : "text-red-600"}`}
+                        >
                           {req.text}
                         </span>
                       </div>
@@ -251,10 +301,12 @@ export default function ResetPasswordPage() {
               <div className="relative">
                 <Input
                   label="Confirm New Password"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm your new password"
                   value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("confirmPassword", e.target.value)
+                  }
                   error={errors.confirmPassword}
                   required
                   autoComplete="new-password"
@@ -265,7 +317,11 @@ export default function ResetPasswordPage() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-8 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
 
@@ -287,7 +343,7 @@ export default function ResetPasswordPage() {
                 loading={loading}
                 disabled={loading}
               >
-                {loading ? 'Resetting Password...' : 'Reset Password'}
+                {loading ? "Resetting Password..." : "Reset Password"}
               </Button>
 
               <div className="text-center">

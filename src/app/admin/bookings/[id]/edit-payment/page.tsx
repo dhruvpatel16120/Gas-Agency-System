@@ -1,26 +1,31 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { toast } from 'react-hot-toast';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { ArrowLeft, Save, DollarSign, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import { toast } from "react-hot-toast";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import { ArrowLeft, Save, DollarSign, AlertCircle } from "lucide-react";
 
 type Booking = {
   id: string;
-  status: 'PENDING' | 'APPROVED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
-  paymentMethod: 'COD' | 'UPI';
-  paymentStatus?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  status:
+    | "PENDING"
+    | "APPROVED"
+    | "OUT_FOR_DELIVERY"
+    | "DELIVERED"
+    | "CANCELLED";
+  paymentMethod: "COD" | "UPI";
+  paymentStatus?: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
   paymentAmount?: number;
 };
 
 type Payment = {
   id: string;
   amount: number;
-  method: 'COD' | 'UPI';
-  status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+  method: "COD" | "UPI";
+  status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
   upiTxnId?: string;
   createdAt: string;
 };
@@ -36,28 +41,25 @@ export default function EditPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState<{ amount: string; status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' }>(
-    { amount: '', status: 'PENDING' }
-  );
+  const [form, setForm] = useState<{
+    amount: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
+  }>({ amount: "", status: "PENDING" });
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
-    else if (session.user.role !== 'ADMIN') router.push('/user');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
+    else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
-  useEffect(() => {
-    if (session?.user?.role === 'ADMIN' && bookingId) {
-      void load();
-    }
-  }, [session, bookingId]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [bookingRes, paymentsRes] = await Promise.all([
-        fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' }),
-        fetch(`/api/admin/bookings/${bookingId}/payments`, { cache: 'no-store' })
+        fetch(`/api/bookings/${bookingId}`, { cache: "no-store" }),
+        fetch(`/api/admin/bookings/${bookingId}/payments`, {
+          cache: "no-store",
+        }),
       ]);
       if (bookingRes.ok) {
         const jb = await bookingRes.json();
@@ -69,54 +71,72 @@ export default function EditPaymentPage() {
         if (latest) setPayment(latest);
       }
     } catch (e) {
-      console.error('Failed to load payment info', e);
+      console.error("Failed to load payment info", e);
     } finally {
       setLoading(false);
     }
-  };
+  }, [bookingId]);
 
-  const canEdit = booking && booking.paymentMethod === 'COD' && ['PENDING','APPROVED','DELIVERED'].includes(booking.status);
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN" && bookingId) {
+      void load();
+    }
+  }, [session, bookingId, load]);
+
+  const canEdit =
+    booking &&
+    booking.paymentMethod === "COD" &&
+    ["PENDING", "APPROVED", "DELIVERED"].includes(booking.status);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEdit) return;
-    const amountInt = parseInt(form.amount || '0', 10);
+    const amountInt = parseInt(form.amount || "0", 10);
     if (Number.isNaN(amountInt) || amountInt < 0) {
-      toast.error('Enter a valid amount');
+      toast.error("Enter a valid amount");
       return;
     }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}/payments`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amountInt, status: form.status })
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amountInt, status: form.status }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        toast.success('Payment updated');
+        toast.success("Payment updated");
         router.push(`/admin/bookings/${bookingId}`);
       } else {
-        toast.error(json.message || 'Failed to update payment');
+        toast.error(json.message || "Failed to update payment");
       }
     } catch (e) {
-      console.error('Failed to update payment', e);
-      toast.error('Failed to update payment');
+      console.error("Failed to update payment", e);
+      toast.error("Failed to update payment");
     } finally {
       setSaving(false);
     }
   };
 
   useEffect(() => {
-    if (booking && (payment || booking.paymentAmount != null || booking.paymentStatus)) {
-      const initialAmount = (payment?.amount ?? booking.paymentAmount ?? 0).toString();
-      const initialStatus = (payment?.status ?? booking.paymentStatus ?? 'PENDING') as 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+    if (
+      booking &&
+      (payment || booking.paymentAmount != null || booking.paymentStatus)
+    ) {
+      const initialAmount = (
+        payment?.amount ??
+        booking.paymentAmount ??
+        0
+      ).toString();
+      const initialStatus = (payment?.status ??
+        booking.paymentStatus ??
+        "PENDING") as "PENDING" | "SUCCESS" | "FAILED" | "CANCELLED";
       setForm({ amount: initialAmount, status: initialStatus });
     }
   }, [booking, payment]);
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   if (loading) {
     return (
@@ -144,9 +164,11 @@ export default function EditPaymentPage() {
           <div className="px-4 py-6 sm:px-0">
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Booking Not Found</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Booking Not Found
+              </h2>
               <button
-                onClick={() => router.push('/admin/bookings')}
+                onClick={() => router.push("/admin/bookings")}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
               >
                 Back to Bookings
@@ -166,8 +188,13 @@ export default function EditPaymentPage() {
           <div className="px-4 py-6 sm:px-0">
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Payment not editable</h2>
-              <p className="text-gray-600 mb-4">Only COD payments can be edited when booking is Pending, Approved or Delivered.</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                Payment not editable
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Only COD payments can be edited when booking is Pending,
+                Approved or Delivered.
+              </p>
               <button
                 onClick={() => router.push(`/admin/bookings/${bookingId}`)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
@@ -196,8 +223,12 @@ export default function EditPaymentPage() {
               Back to Booking
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Edit Payment for #{booking.id}</h1>
-              <p className="text-sm text-gray-600">Update COD payment amount or status</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Edit Payment for #{booking.id}
+              </h1>
+              <p className="text-sm text-gray-600">
+                Update COD payment amount or status
+              </p>
             </div>
           </div>
 
@@ -219,7 +250,9 @@ export default function EditPaymentPage() {
                       type="number"
                       min="0"
                       value={form.amount}
-                      onChange={(e) => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, amount: e.target.value }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     />
@@ -230,7 +263,7 @@ export default function EditPaymentPage() {
                     </label>
                     <select
                       value={form.status}
-                      onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as any }))}
+                      onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED' }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     >
@@ -276,5 +309,3 @@ export default function EditPaymentPage() {
     </div>
   );
 }
-
-

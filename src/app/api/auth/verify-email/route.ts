@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { z } from "zod";
 
 // Validation schema
 const verifyEmailSchema = z.object({
-  token: z.string().min(1, 'Token is required'),
+  token: z.string().min(1, "Token is required"),
 });
 
 export async function POST(request: NextRequest) {
@@ -15,12 +15,12 @@ export async function POST(request: NextRequest) {
     const validationResult = verifyEmailSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { 
-          success: false, 
-          message: 'Validation failed', 
-          errors: validationResult.error.issues 
+        {
+          success: false,
+          message: "Validation failed",
+          errors: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -46,34 +46,34 @@ export async function POST(request: NextRequest) {
 
       if (expiredUser) {
         return NextResponse.json(
-          { 
-            success: false, 
-            error: 'TOKEN_EXPIRED',
-            message: 'Email verification link has expired' 
+          {
+            success: false,
+            error: "TOKEN_EXPIRED",
+            message: "Email verification link has expired",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'INVALID_TOKEN',
-          message: 'Invalid verification token' 
+        {
+          success: false,
+          error: "INVALID_TOKEN",
+          message: "Invalid verification token",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Check if email is already verified
     if (user.emailVerified) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'ALREADY_VERIFIED',
-          message: 'Email is already verified' 
+        {
+          success: false,
+          error: "ALREADY_VERIFIED",
+          message: "Email is already verified",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -88,21 +88,20 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      { 
-        success: true, 
-        message: 'Email verified successfully' 
+      {
+        success: true,
+        message: "Email verified successfully",
       },
-      { status: 200 }
+      { status: 200 },
     );
-
   } catch (error) {
-    console.error('Email verification error:', error);
+    console.error("Email verification error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        message: 'Internal server error' 
+      {
+        success: false,
+        message: "Internal server error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

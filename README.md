@@ -1,5 +1,29 @@
 # 🚀 Gas Agency System
 
+
+<p align="center">
+  <img src="preview/logo.png" alt="Gas Agency System Logo" width="180" />
+</p>
+
+<h2 align="center">Gas Agency System</h2>
+
+<p align="center">
+  A modern, full-stack gas cylinder booking and management platform designed for agencies and customers.<br>
+  Built with <b>Next.js 15</b>, <b>TypeScript</b>, <b>Prisma</b>, and <b>PostgreSQL</b>.
+</p>
+
+**Key Features:**
+- User and Admin roles with secure authentication
+- Cylinder booking with real-time status tracking
+- UPI and Cash on Delivery payment options
+- Email verification and password reset
+- Admin dashboard for managing users, bookings, inventory, and deliveries
+- Quota management (12 cylinders/year per user)
+- Modern UI with responsive design
+- Built-in API endpoints for extensibility
+
+
+
 [![Next.js](https://img.shields.io/badge/Next.js-15.4.7-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.14.0-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
@@ -33,6 +57,7 @@
 ## 🌟 Features
 
 ### 🔐 **Authentication & User Management**
+
 - **Multi-role Authentication**: User and Admin roles with secure session management
 - **Email Verification**: Account verification with email confirmation
 - **Password Reset**: Secure password reset with email tokens
@@ -40,6 +65,7 @@
 - **Session Security**: NextAuth.js with secure session handling
 
 ### 📱 **User Dashboard**
+
 - **Quota Management**: Track remaining cylinder quota (12 per year)
 - **Booking System**: Easy cylinder booking with multiple payment options
 - **Booking History**: Complete booking history with status tracking
@@ -48,6 +74,7 @@
 - **Profile Management**: Update personal information and preferences
 
 ### 🏢 **Admin Dashboard**
+
 - **Comprehensive Analytics**: Revenue, bookings, deliveries, and user statistics
 - **User Management**: View, edit, and manage user accounts
 - **Booking Management**: Approve, reject, and track all bookings
@@ -58,24 +85,28 @@
 - **Reporting**: Export data and generate reports
 
 ### 💳 **Payment System**
+
 - **UPI Integration**: Secure UPI payment processing
 - **Payment Verification**: Admin review and approval system
 - **Transaction Tracking**: Complete payment history and status
 - **Refund Handling**: Automatic refund processing for cancellations
 
 ### 🚚 **Delivery Management**
+
 - **Partner Management**: Manage delivery partners and their areas
 - **Assignment System**: Intelligent delivery assignment
 - **Status Tracking**: Real-time delivery status updates
 - **Route Optimization**: Efficient delivery scheduling
 
 ### 📦 **Inventory Management**
+
 - **Stock Monitoring**: Real-time cylinder availability
 - **Batch Management**: Track cylinder batches and suppliers
 - **Stock Adjustments**: Handle stock corrections and audits
 - **Reservation System**: Prevent overbooking with stock reservations
 
 ### 📧 **Communication System**
+
 - **Email Notifications**: Automated email notifications for all events
 - **Contact Support**: Customer support ticket system
 - **Status Updates**: Real-time booking and delivery updates
@@ -84,6 +115,7 @@
 ## 🛠️ Tech Stack
 
 ### **Frontend**
+
 - **Next.js 15.4.7** - React framework with App Router
 - **TypeScript 5.0** - Type-safe JavaScript
 - **Tailwind CSS 4.0** - Utility-first CSS framework
@@ -93,6 +125,7 @@
 - **Lucide React** - Icon library
 
 ### **Backend**
+
 - **Next.js API Routes** - Server-side API endpoints
 - **Prisma 6.14.0** - Database ORM
 - **PostgreSQL** - Primary database
@@ -101,6 +134,7 @@
 - **Puppeteer** - PDF generation
 
 ### **Development Tools**
+
 - **ESLint** - Code linting
 - **Prettier** - Code formatting
 - **Husky** - Git hooks
@@ -139,6 +173,7 @@ npm run setup
 ```
 
 This interactive script will help you configure:
+
 - Database connection (Railway PostgreSQL)
 - Email settings (Gmail SMTP)
 - NextAuth configuration
@@ -187,7 +222,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the application.
    - Copy the DATABASE_PUBLIC_URL and comeback to project
 
 4. **Configure Environment**
-   - Update your `.env` file with the Railway connection string or paste it in setup 
+   - Update your `.env` file with the Railway connection string or paste it in setup
    - Format: `postgresql://username:password@host:port/database`
 
 ### Database Migrations
@@ -305,6 +340,7 @@ gas-agency-system/
 ## 🔗 URL Structure
 
 ### **Public Routes**
+
 - `/` - Home page (redirects to login)
 - `/login` - User login
 - `/register` - User registration
@@ -313,6 +349,7 @@ gas-agency-system/
 - `/verify-email` - Email verification
 
 ### **User Routes**
+
 - `/user` - User dashboard
 - `/user/book` - Book new cylinder
 - `/user/bookings` - Booking history
@@ -326,6 +363,7 @@ gas-agency-system/
 - `/user/contact` - Contact support
 
 ### **Admin Routes**
+
 - `/admin` - Admin dashboard
 - `/admin/users` - User management
 - `/admin/users/[id]` - User details
@@ -341,6 +379,7 @@ gas-agency-system/
 - `/admin/settings` - System settings
 
 ### **API Routes**
+
 - `/api/auth/*` - Authentication endpoints
 - `/api/bookings/*` - Booking management
 - `/api/payments/*` - Payment processing
@@ -352,10 +391,11 @@ gas-agency-system/
 ### **Core Models**
 
 #### **User Management**
+
 ```sql
 -- Users table
 users (
-  id, email, name, userId, phone, address, 
+  id, email, name, userId, phone, address,
   password, role, remainingQuota, emailVerified,
   resetToken, resetTokenExpiry, emailVerificationToken,
   emailVerificationExpiry, createdAt, updatedAt
@@ -368,6 +408,7 @@ verification_tokens (identifier, token, expires)
 ```
 
 #### **Booking System**
+
 ```sql
 -- Bookings table
 bookings (
@@ -382,6 +423,7 @@ booking_events (id, bookingId, status, title, description, createdAt)
 ```
 
 #### **Payment System**
+
 ```sql
 -- Payments table
 payments (
@@ -390,6 +432,7 @@ payments (
 ```
 
 #### **Inventory Management**
+
 ```sql
 -- Stock management
 cylinder_stock (id, totalAvailable, updatedAt, createdAt)
@@ -399,6 +442,7 @@ cylinder_batches (id, supplier, invoiceNo, quantity, receivedAt, ...)
 ```
 
 #### **Delivery System**
+
 ```sql
 -- Delivery partners
 delivery_partners (
@@ -414,6 +458,7 @@ delivery_assignments (
 ```
 
 #### **Contact Management**
+
 ```sql
 -- Contact messages
 contact_messages (
@@ -429,26 +474,29 @@ contact_replies (id, messageId, authorId, body, isAdmin, createdAt)
 ## 🎨 Screenshots
 
 ### **User Interface**
-| ![User Dashboard](preview/user-dashboard.png) | ![Booking Form](preview/booking-form.png) |
-|:---:|:---:|
+
+|        ![User Dashboard](preview/user_dashboard.png)         |       ![Booking Form](preview/booking.png)       |
+| :----------------------------------------------------------: | :----------------------------------------------: |
 | **User Dashboard** - Main user interface with quota tracking | **Booking Form** - Easy cylinder booking process |
 
-| ![Payment Interface](preview/payment-interface.png) | ![Tracking Page](screenshots/tracking-page.png) |
-|:---:|:---:|
+|       ![Payment Interface](preview/payment.png)       |       ![Tracking Page](preview/track.png)       |
+| :---------------------------------------------------: | :---------------------------------------------: |
 | **Payment Interface** - Secure UPI payment processing | **Tracking Page** - Real-time delivery tracking |
 
 ### **Admin Interface**
-| ![Admin Dashboard](screenshots/admin-dashboard.png) | ![Booking Management](screenshots/booking-management.png) |
-|:---:|:---:|
+
+|      ![Admin Dashboard](preview/admin_dashboard.png)       |   ![Booking Management](preview/admin_booking.png)   |
+| :--------------------------------------------------------: | :--------------------------------------------------: |
 | **Admin Dashboard** - Comprehensive analytics and overview | **Booking Management** - Approve and manage bookings |
 
-| ![Inventory Management](screenshots/inventory-management.png) | ![User Management](screenshots/user-management.png) |
-|:---:|:---:|
+|       ![Inventory Management](preview/inventory.png)        |       ![User Management](preview/users.png)       |
+| :---------------------------------------------------------: | :-----------------------------------------------: |
 | **Inventory Management** - Stock monitoring and adjustments | **User Management** - User account administration |
 
 ## 🔧 Available Scripts
 
 ### **Development**
+
 ```bash
 npm run dev          # Start development server
 npm run build        # Build for production
@@ -459,6 +507,7 @@ npm run type-check   # Run TypeScript type checking
 ```
 
 ### **Database**
+
 ```bash
 npm run db:generate  # Generate Prisma client
 npm run db:migrate   # Run database migrations
@@ -469,6 +518,7 @@ npm run db:push      # Push schema changes
 ```
 
 ### **Setup & Management**
+
 ```bash
 npm run setup        # Interactive environment setup
 npm run admin:create # Create admin account
@@ -479,6 +529,7 @@ npm run admin:password # Change admin password
 ## 📚 API Documentation
 
 ### **Authentication Endpoints**
+
 - `POST /api/auth/register` - User registration
 - `POST /api/auth/login` - User login
 - `POST /api/auth/forgot-password` - Password reset request
@@ -486,6 +537,7 @@ npm run admin:password # Change admin password
 - `POST /api/auth/verify-email` - Email verification
 
 ### **Booking Endpoints**
+
 - `GET /api/bookings` - List user bookings
 - `POST /api/bookings` - Create new booking
 - `GET /api/bookings/[id]` - Get booking details
@@ -493,12 +545,14 @@ npm run admin:password # Change admin password
 - `GET /api/bookings/track/[id]` - Track booking
 
 ### **Payment Endpoints**
+
 - `POST /api/payments/upi` - Process UPI payment
 - `POST /api/payments/upi/confirm-and-create` - Confirm UPI payment
 - `POST /api/payments/upi/retry` - Retry failed payment
 - `POST /api/payments/webhook` - Payment webhook
 
 ### **Admin Endpoints**
+
 - `GET /api/admin/dashboard` - Dashboard statistics
 - `GET /api/admin/users` - List users
 - `GET /api/admin/bookings` - List all bookings
@@ -511,6 +565,7 @@ npm run admin:password # Change admin password
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ### **Development Setup**
+
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes
@@ -520,6 +575,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 7. Open a Pull Request
 
 ### **Code Style**
+
 - Follow TypeScript best practices
 - Use Prettier for code formatting
 - Write meaningful commit messages
@@ -533,7 +589,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ```
 MIT License
 
-Copyright (c) 2024 Gas Agency System
+Copyright (c) 2024 Dhruv Patel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -556,32 +612,35 @@ SOFTWARE.
 
 ## 📞 Contact
 
-### **Project Maintainer**
-- **Name**: Gas Agency System Team
-- **Email**: support@gasagencysystem.com
-- **GitHub**: [@gas-agency-system](https://github.com/gas-agency-system)
+### 👨‍💻 Developer
 
-### **Support & Documentation**
-- **Documentation**: [docs.gasagencysystem.com](https://docs.gasagencysystem.com)
-- **Issues**: [GitHub Issues](https://github.com/gas-agency-system/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/gas-agency-system/discussions)
+**Dhruv Patel**
+- **GitHub**: [@dhruvpatel16120](https://github.com/dhruvpatel16120)
+- **LinkedIn**: [dhruvpatel16120](https://www.linkedin.com/in/dhruvpatel16120/)
+- **Portfolio**: [dhruvpatelofficial.vercel.app](https://dhruvpatelofficial.vercel.app/)
+- **Email**: [digitaldhruv21@gmail.com](mailto:digitaldhruv21@gmail.com)
 
-### **Community**
-- **Discord**: [Join our Discord](https://discord.gg/gas-agency-system)
-- **Twitter**: [@GasAgencySystem](https://twitter.com/GasAgencySystem)
-- **LinkedIn**: [Gas Agency System](https://linkedin.com/company/gas-agency-system)
+### 🌐 Project Links
+
+- **Live Demo**: [gas-agency-system.vercel.app](https://gas-agency-system.vercel.app/)
+- **Repository**: [github.com/dhruvpatel16120/Gas-Agency-System/](https://github.com/dhruvpatel16120/Gas-Agency-System/)
+- **Documentation**: [Gas-Agency-System/Documentation.md](https://github.com/dhruvpatel16120/Gas-Agency-System/Documentation.md)
+- **Issues**: [GitHub Issues](https://github.com/dhruvpatel16120/Gas-Agency-System/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/dhruvpatel16120/Gas-Agency-System/discussions)
+
+### 💬 Support
+
+- **Documentation**: Check this [Documentation.md](https://github.com/dhruvpatel16120/Gas-Agency-System/Documentation.md) as Documentation
+- **Issues**: Report bugs and request features on GitHub
+- **Discussions**: Ask questions and share ideas in GitHub Discussions
+- **Email**: For private inquiries, use the contact form on the [portfolio](https://dhruvpatelofficial.vercel.app/) or email above
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by the Gas Agency System Team**
+**Made with ❤️ using Next.js, Prisma, and Tailwind CSS**
 
-[![GitHub stars](https://img.shields.io/github/stars/gas-agency-system/gas-agency-system?style=social)](https://github.com/gas-agency-system/gas-agency-system/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/gas-agency-system/gas-agency-system?style=social)](https://github.com/gas-agency-system/gas-agency-system/network)
-[![GitHub issues](https://img.shields.io/github/issues/gas-agency-system/gas-agency-system)](https://github.com/gas-agency-system/gas-agency-system/issues)
-[![GitHub pull requests](https://img.shields.io/github/issues-pr/gas-agency-system/gas-agency-system)](https://github.com/gas-agency-system/gas-agency-system/pulls)
-
-**If this project helps you, please give it a ⭐️**
+### If you find this project helpful, please give it a ⭐ star on GitHub!
 
 </div>

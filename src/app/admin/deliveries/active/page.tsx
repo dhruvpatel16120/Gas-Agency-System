@@ -1,25 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AdminNavbar from '@/components/AdminNavbar';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import Link from 'next/link';
-import { 
-  Truck, 
-  MapPin, 
-  Clock, 
-  CheckCircle,
-  AlertTriangle,
-  Phone,
-  Mail,
-  Edit3,
-  Eye,
-  RefreshCw,
-  Filter,
-  Search
-} from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import AdminNavbar from "@/components/AdminNavbar";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
+import Link from "next/link";
+import { Truck, MapPin, Phone, Mail, Eye, RefreshCw, Search } from "lucide-react";
 
 type Delivery = {
   id: string;
@@ -36,7 +23,7 @@ type Delivery = {
   assignedAt: string;
   expectedDelivery: string;
   notes?: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority: "LOW" | "MEDIUM" | "HIGH";
 };
 
 type FilterOptions = {
@@ -49,28 +36,32 @@ type FilterOptions = {
 export default function ActiveDeliveriesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  
+
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [partners, setPartners] = useState<Array<{ id: string; name: string; isActive: boolean }>>([]);
+  const [partners, setPartners] = useState<
+    Array<{ id: string; name: string; isActive: boolean }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterOptions>({
-    status: '',
-    partnerId: '',
-    priority: '',
-    search: ''
+    status: "",
+    partnerId: "",
+    priority: "",
+    search: "",
   });
-  const [deliveryNotes, setDeliveryNotes] = useState<{ [key: string]: string }>({});
+  const [deliveryNotes, setDeliveryNotes] = useState<{ [key: string]: string }>(
+    {},
+  );
 
   useEffect(() => {
-    if (status === 'loading') return;
-    if (!session) router.push('/login');
-    else if (session.user.role !== 'ADMIN') router.push('/user');
+    if (status === "loading") return;
+    if (!session) router.push("/login");
+    else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
   useEffect(() => {
-    if (session?.user?.role === 'ADMIN') {
-      loadData();
+    if (session?.user?.role === "ADMIN") {
+      void loadData();
     }
   }, [session]);
 
@@ -78,8 +69,10 @@ export default function ActiveDeliveriesPage() {
     setLoading(true);
     try {
       const [deliveriesRes, partnersRes] = await Promise.all([
-        fetch('/api/admin/deliveries/active', { cache: 'no-store' }),
-        fetch('/api/admin/deliveries/partners?isActive=true', { cache: 'no-store' })
+        fetch("/api/admin/deliveries/active", { cache: "no-store" }),
+        fetch("/api/admin/deliveries/partners?isActive=true", {
+          cache: "no-store",
+        }),
       ]);
 
       if (deliveriesRes.ok) {
@@ -90,11 +83,12 @@ export default function ActiveDeliveriesPage() {
       if (partnersRes.ok) {
         const partnersData = await partnersRes.json();
         // Handle both direct data and paginated data structures
-        const partnersArray = partnersData.data?.data || partnersData.data || [];
+        const partnersArray =
+          partnersData.data?.data || partnersData.data || [];
         setPartners(partnersArray);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error("Error loading data:", error);
       setDeliveries([]);
       setPartners([]);
     } finally {
@@ -102,37 +96,51 @@ export default function ActiveDeliveriesPage() {
     }
   };
 
-  const updateDeliveryStatus = async (deliveryId: string, newStatus: string, notes?: string) => {
+  const updateDeliveryStatus = async (
+    deliveryId: string,
+    newStatus: string,
+    notes?: string,
+  ) => {
     setUpdating(deliveryId);
-    
+
     // Get notes from state or use provided notes
-    const statusNotes = notes || deliveryNotes[deliveryId] || '';
-    
+    const statusNotes = notes || deliveryNotes[deliveryId] || "";
+
     try {
-      const res = await fetch('/api/admin/deliveries/assignments', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookingId: deliveryId, 
+      const res = await fetch("/api/admin/deliveries/assignments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: deliveryId,
           status: newStatus,
-          notes: statusNotes 
-        })
+          notes: statusNotes,
+        }),
       });
 
       if (res.ok) {
-        const result = await res.json();
+        await res.json();
         // Show success message
-        alert(`Status updated successfully to ${newStatus.toLowerCase().replace('_', ' ')}`);
+        if (newStatus === "DELIVERED") {
+          alert(
+            `Delivery marked as completed successfully! Invoice has been automatically generated and sent to the customer's email.`,
+          );
+        } else {
+          alert(
+            `Status updated successfully to ${newStatus.toLowerCase().replace("_", " ")}`,
+          );
+        }
         // Clear notes for this delivery
-        setDeliveryNotes(prev => ({ ...prev, [deliveryId]: '' }));
+        setDeliveryNotes((prev) => ({ ...prev, [deliveryId]: "" }));
         await loadData();
       } else {
         const error = await res.json();
-        alert(`Failed to update delivery status: ${error.message || 'Unknown error'}`);
+        alert(
+          `Failed to update delivery status: ${error.message || "Unknown error"}`,
+        );
       }
     } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Error updating delivery status');
+      console.error("Error updating status:", error);
+      alert("Error updating delivery status");
     } finally {
       setUpdating(null);
     }
@@ -141,23 +149,23 @@ export default function ActiveDeliveriesPage() {
   const assignPartner = async (deliveryId: string, partnerId: string) => {
     setUpdating(deliveryId);
     try {
-      const res = await fetch('/api/admin/deliveries/assignments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookingId: deliveryId, 
-          partnerId 
-        })
+      const res = await fetch("/api/admin/deliveries/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: deliveryId,
+          partnerId,
+        }),
       });
 
       if (res.ok) {
         await loadData();
       } else {
-        alert('Failed to assign partner');
+        alert("Failed to assign partner");
       }
     } catch (error) {
-      console.error('Error assigning partner:', error);
-      alert('Error assigning partner');
+      console.error("Error assigning partner:", error);
+      alert("Error assigning partner");
     } finally {
       setUpdating(null);
     }
@@ -165,38 +173,40 @@ export default function ActiveDeliveriesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'ASSIGNED':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'PICKED_UP':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'OUT_FOR_DELIVERY':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'DELIVERED':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'FAILED':
-        return 'bg-red-100 text-red-800 border-red-200';
+      case "ASSIGNED":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "PICKED_UP":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "OUT_FOR_DELIVERY":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "DELIVERED":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "FAILED":
+        return "bg-red-100 text-red-800 border-red-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 border-green-200';
+      case "HIGH":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "MEDIUM":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "LOW":
+        return "bg-green-100 text-green-800 border-green-200";
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
-  const filteredDeliveries = deliveries.filter(delivery => {
+  const filteredDeliveries = deliveries.filter((delivery) => {
     if (filters.status && delivery.status !== filters.status) return false;
-    if (filters.partnerId && delivery.partnerId !== filters.partnerId) return false;
-    if (filters.priority && delivery.priority !== filters.priority) return false;
+    if (filters.partnerId && delivery.partnerId !== filters.partnerId)
+      return false;
+    if (filters.priority && delivery.priority !== filters.priority)
+      return false;
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
       return (
@@ -208,8 +218,8 @@ export default function ActiveDeliveriesPage() {
     return true;
   });
 
-  if (status === 'loading') return null;
-  if (!session || session.user.role !== 'ADMIN') return null;
+  if (status === "loading") return null;
+  if (!session || session.user.role !== "ADMIN") return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -219,8 +229,12 @@ export default function ActiveDeliveriesPage() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Active Deliveries</h1>
-              <p className="text-gray-600 mt-2">Monitor and manage active cylinder deliveries</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Active Deliveries
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Monitor and manage active cylinder deliveries
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -228,7 +242,9 @@ export default function ActiveDeliveriesPage() {
                 disabled={loading}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
                 Refresh
               </button>
               <Link
@@ -246,24 +262,38 @@ export default function ActiveDeliveriesPage() {
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Search
+                  </label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
                       placeholder="Customer, address, or booking ID"
                       value={filters.search}
-                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                      onChange={(e) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          search: e.target.value,
+                        }))
+                      }
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Status
+                  </label>
                   <select
                     value={filters.status}
-                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        status: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Status</option>
@@ -276,24 +306,41 @@ export default function ActiveDeliveriesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Partner</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Partner
+                  </label>
                   <select
                     value={filters.partnerId}
-                    onChange={(e) => setFilters(prev => ({ ...prev, partnerId: e.target.value }))}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        partnerId: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Partners</option>
-                    {Array.isArray(partners) && partners.map(partner => (
-                      <option key={partner.id} value={partner.id}>{partner.name}</option>
-                    ))}
+                    {Array.isArray(partners) &&
+                      partners.map((partner) => (
+                        <option key={partner.id} value={partner.id}>
+                          {partner.name}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Priority
+                  </label>
                   <select
                     value={filters.priority}
-                    onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
+                    onChange={(e) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        priority: e.target.value,
+                      }))
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">All Priorities</option>
@@ -327,27 +374,40 @@ export default function ActiveDeliveriesPage() {
                 <div className="text-center py-12 text-gray-500">
                   <Truck className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                   <p className="text-lg font-medium">No deliveries found</p>
-                  <p className="text-sm">Try adjusting your filters or check back later</p>
+                  <p className="text-sm">
+                    Try adjusting your filters or check back later
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {filteredDeliveries.map((delivery) => (
-                    <div key={delivery.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div
+                      key={delivery.id}
+                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-3">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)}`}>
-                              {delivery.status.replace('_', ' ')}
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(delivery.status)}`}
+                            >
+                              {delivery.status.replace("_", " ")}
                             </span>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(delivery.priority)}`}>
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(delivery.priority)}`}
+                            >
                               {delivery.priority}
                             </span>
-                            <span className="text-sm text-gray-500">#{delivery.bookingId}</span>
+                            <span className="text-sm text-gray-500">
+                              #{delivery.bookingId}
+                            </span>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                              <h3 className="font-semibold text-gray-900 mb-2">{delivery.customerName}</h3>
+                              <h3 className="font-semibold text-gray-900 mb-2">
+                                {delivery.customerName}
+                              </h3>
                               <div className="space-y-1 text-sm text-gray-600">
                                 <div className="flex items-center gap-2">
                                   <Phone className="w-4 h-4" />
@@ -359,57 +419,107 @@ export default function ActiveDeliveriesPage() {
                                 </div>
                                 <div className="flex items-start gap-2">
                                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                  <span className="line-clamp-2">{delivery.address}</span>
+                                  <span className="line-clamp-2">
+                                    {delivery.address}
+                                  </span>
                                 </div>
                               </div>
                             </div>
 
                             <div>
                               <div className="mb-2">
-                                <span className="text-sm font-medium text-gray-700">Quantity: </span>
-                                <span className="text-sm text-gray-900">{delivery.quantity} cylinders</span>
-                              </div>
-                              <div className="mb-2">
-                                <span className="text-sm font-medium text-gray-700">Assigned: </span>
-                                <span className="text-sm text-gray-900">{delivery.partnerName}</span>
-                              </div>
-                              <div className="mb-2">
-                                <span className="text-sm font-medium text-gray-700">Expected: </span>
+                                <span className="text-sm font-medium text-gray-700">
+                                  Quantity:{" "}
+                                </span>
                                 <span className="text-sm text-gray-900">
-                                  {new Date(delivery.expectedDelivery).toLocaleDateString()}
+                                  {delivery.quantity} cylinders
                                 </span>
                               </div>
-                              
+                              <div className="mb-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Assigned:{" "}
+                                </span>
+                                <span className="text-sm text-gray-900">
+                                  {delivery.partnerName}
+                                </span>
+                              </div>
+                              <div className="mb-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  Expected:{" "}
+                                </span>
+                                <span className="text-sm text-gray-900">
+                                  {new Date(
+                                    delivery.expectedDelivery,
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+
                               {/* Delivery Progress Tracking */}
                               <div className="mt-3 p-3 bg-gray-50 rounded-lg border">
-                                <div className="text-xs font-medium text-gray-600 mb-2">Delivery Progress:</div>
-                                <div className="flex items-center space-x-2">
-                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'ASSIGNED' ? 'bg-blue-500' : 'bg-gray-300'}`} title="Assigned"></div>
-                                  <div className="text-xs text-gray-500">Assigned</div>
-                                  
-                                  <div className="w-4 h-px bg-gray-300"></div>
-                                  
-                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'PICKED_UP' ? 'bg-yellow-500' : 'bg-gray-300'}`} title="Picked Up"></div>
-                                  <div className="text-xs text-gray-500">Picked Up</div>
-                                  
-                                  <div className="w-4 h-px bg-gray-300"></div>
-                                  
-                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'OUT_FOR_DELIVERY' ? 'bg-purple-500' : 'bg-gray-300'}`} title="Out for Delivery"></div>
-                                  <div className="text-xs text-gray-500">On Way</div>
-                                  
-                                  <div className="w-4 h-px bg-gray-300"></div>
-                                  
-                                  <div className={`w-3 h-3 rounded-full ${delivery.status === 'DELIVERED' ? 'bg-green-500' : 'bg-gray-300'}`} title="Delivered"></div>
-                                  <div className="text-xs text-gray-500">Delivered</div>
+                                <div className="text-xs font-medium text-gray-600 mb-2">
+                                  Delivery Progress:
                                 </div>
-                                
+                                <div className="flex items-center space-x-2">
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${delivery.status === "ASSIGNED" ? "bg-blue-500" : "bg-gray-300"}`}
+                                    title="Assigned"
+                                  ></div>
+                                  <div className="text-xs text-gray-500">
+                                    Assigned
+                                  </div>
+
+                                  <div className="w-4 h-px bg-gray-300"></div>
+
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${delivery.status === "PICKED_UP" ? "bg-yellow-500" : "bg-gray-300"}`}
+                                    title="Picked Up"
+                                  ></div>
+                                  <div className="text-xs text-gray-500">
+                                    Picked Up
+                                  </div>
+
+                                  <div className="w-4 h-px bg-gray-300"></div>
+
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${delivery.status === "OUT_FOR_DELIVERY" ? "bg-purple-500" : "bg-gray-300"}`}
+                                    title="Out for Delivery"
+                                  ></div>
+                                  <div className="text-xs text-gray-500">
+                                    On Way
+                                  </div>
+
+                                  <div className="w-4 h-px bg-gray-300"></div>
+
+                                  <div
+                                    className={`w-3 h-3 rounded-full ${delivery.status === "DELIVERED" ? "bg-green-500" : "bg-gray-300"}`}
+                                    title="Delivered"
+                                  ></div>
+                                  <div className="text-xs text-gray-500">
+                                    Delivered
+                                  </div>
+                                </div>
+
                                 {/* Current Status */}
                                 <div className="mt-2 text-xs">
-                                  <span className="font-medium text-gray-700">Current: </span>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(delivery.status)}`}>
-                                    {delivery.status.replace('_', ' ')}
+                                  <span className="font-medium text-gray-700">
+                                    Current:{" "}
+                                  </span>
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(delivery.status)}`}
+                                  >
+                                    {delivery.status.replace("_", " ")}
                                   </span>
                                 </div>
+
+                                {/* Invoice Info */}
+                                {delivery.status === "OUT_FOR_DELIVERY" && (
+                                  <div className="mt-2 text-xs">
+                                    <span className="text-blue-600 font-medium">
+                                      📄 Invoice will be sent automatically when
+                                      marked as delivered
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -420,19 +530,27 @@ export default function ActiveDeliveriesPage() {
                           <div className="mb-2">
                             <textarea
                               placeholder="Add notes for status updates..."
-                              value={deliveryNotes[delivery.bookingId] || ''}
+                              value={deliveryNotes[delivery.bookingId] || ""}
                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                               rows={2}
                               onChange={(e) => {
-                                setDeliveryNotes(prev => ({ ...prev, [delivery.bookingId]: e.target.value }));
+                                setDeliveryNotes((prev) => ({
+                                  ...prev,
+                                  [delivery.bookingId]: e.target.value,
+                                }));
                               }}
                             />
                           </div>
-                          
+
                           {/* Status Update Buttons */}
-                          {delivery.status === 'ASSIGNED' && (
+                          {delivery.status === "ASSIGNED" && (
                             <button
-                              onClick={() => updateDeliveryStatus(delivery.bookingId, 'PICKED_UP')}
+                              onClick={() =>
+                                updateDeliveryStatus(
+                                  delivery.bookingId,
+                                  "PICKED_UP",
+                                )
+                              }
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm hover:bg-yellow-200 transition-colors disabled:opacity-50"
                               title="Mark when delivery partner picks up the cylinders"
@@ -441,9 +559,14 @@ export default function ActiveDeliveriesPage() {
                             </button>
                           )}
 
-                          {delivery.status === 'PICKED_UP' && (
+                          {delivery.status === "PICKED_UP" && (
                             <button
-                              onClick={() => updateDeliveryStatus(delivery.bookingId, 'OUT_FOR_DELIVERY')}
+                              onClick={() =>
+                                updateDeliveryStatus(
+                                  delivery.bookingId,
+                                  "OUT_FOR_DELIVERY",
+                                )
+                              }
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-purple-100 text-purple-800 rounded text-sm hover:bg-purple-200 transition-colors disabled:opacity-50"
                               title="Mark when delivery partner starts delivery journey"
@@ -452,12 +575,17 @@ export default function ActiveDeliveriesPage() {
                             </button>
                           )}
 
-                          {delivery.status === 'OUT_FOR_DELIVERY' && (
+                          {delivery.status === "OUT_FOR_DELIVERY" && (
                             <button
-                              onClick={() => updateDeliveryStatus(delivery.bookingId, 'DELIVERED')}
+                              onClick={() =>
+                                updateDeliveryStatus(
+                                  delivery.bookingId,
+                                  "DELIVERED",
+                                )
+                              }
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200 transition-colors disabled:opacity-50"
-                              title="Mark when delivery is completed successfully"
+                              title="Mark when delivery is completed successfully. Invoice will be automatically generated and sent to customer."
                             >
                               Mark Delivered
                             </button>
@@ -466,21 +594,40 @@ export default function ActiveDeliveriesPage() {
                           {/* Partner Assignment */}
                           {!delivery.partnerId && (
                             <select
-                              onChange={(e) => assignPartner(delivery.bookingId, e.target.value)}
+                              onChange={(e) =>
+                                assignPartner(
+                                  delivery.bookingId,
+                                  e.target.value,
+                                )
+                              }
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                             >
                               <option value="">Assign Partner</option>
-                              {Array.isArray(partners) && partners.filter(p => p.isActive).map(partner => (
-                                <option key={partner.id} value={partner.id}>{partner.name}</option>
-                              ))}
+                              {Array.isArray(partners) &&
+                                partners
+                                  .filter((p) => p.isActive)
+                                  .map((partner) => (
+                                    <option key={partner.id} value={partner.id}>
+                                      {partner.name}
+                                    </option>
+                                  ))}
                             </select>
                           )}
 
                           {/* Failed Delivery */}
-                          {['ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY'].includes(delivery.status) && (
+                          {[
+                            "ASSIGNED",
+                            "PICKED_UP",
+                            "OUT_FOR_DELIVERY",
+                          ].includes(delivery.status) && (
                             <button
-                              onClick={() => updateDeliveryStatus(delivery.bookingId, 'FAILED')}
+                              onClick={() =>
+                                updateDeliveryStatus(
+                                  delivery.bookingId,
+                                  "FAILED",
+                                )
+                              }
                               disabled={updating === delivery.bookingId}
                               className="px-3 py-1 bg-red-100 text-red-800 rounded text-sm hover:bg-red-200 transition-colors disabled:opacity-50"
                               title="Mark if delivery fails or cannot be completed"

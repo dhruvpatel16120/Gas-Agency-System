@@ -1,42 +1,42 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import type { Prisma } from '@prisma/client';
-import { withMiddleware, parseRequestBody } from '@/lib/api-middleware';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import type { Prisma, BookingStatus, PaymentMethod } from "@prisma/client";
+import { withMiddleware, parseRequestBody } from "@/lib/api-middleware";
+import { z } from "zod";
 
 // GET - Fetch all bookings with filters
-async function listBookingsHandler(request: NextRequest): Promise<NextResponse> {
+async function listBookingsHandler(
+  request: NextRequest,
+): Promise<NextResponse> {
   try {
-
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const status = searchParams.get('status');
-    const paymentMethod = searchParams.get('paymentMethod');
-    const paymentStatus = searchParams.get('paymentStatus');
-    const search = searchParams.get('search');
-    const dateFrom = searchParams.get('dateFrom');
-    const dateTo = searchParams.get('dateTo');
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const status = searchParams.get("status");
+    const paymentMethod = searchParams.get("paymentMethod");
+    const search = searchParams.get("search");
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
 
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = {};
-    
-    if (status) where.status = status;
-    if (paymentMethod) where.paymentMethod = paymentMethod;
+    const where: Prisma.BookingWhereInput = {};
+
+    if (status) where.status = status as BookingStatus;
+    if (paymentMethod) where.paymentMethod = paymentMethod as PaymentMethod;
     if (search) {
       where.OR = [
-        { id: { contains: search, mode: 'insensitive' } },
-        { userName: { contains: search, mode: 'insensitive' } },
-        { userPhone: { contains: search, mode: 'insensitive' } },
-        { userEmail: { contains: search, mode: 'insensitive' } }
+        { id: { contains: search, mode: "insensitive" } },
+        { userName: { contains: search, mode: "insensitive" } },
+        { userPhone: { contains: search, mode: "insensitive" } },
+        { userEmail: { contains: search, mode: "insensitive" } },
       ];
     }
     if (dateFrom || dateTo) {
-      where.createdAt = {};
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom);
-      if (dateTo) where.createdAt.lte = new Date(dateTo);
+      where.createdAt = {} as Prisma.DateTimeFilter;
+      if (dateFrom) (where.createdAt as Prisma.DateTimeFilter).gte = new Date(dateFrom);
+      if (dateTo) (where.createdAt as Prisma.DateTimeFilter).lte = new Date(dateTo);
     }
 
     // Get bookings with user info
@@ -54,7 +54,7 @@ async function listBookingsHandler(request: NextRequest): Promise<NextResponse> 
             },
           },
           payments: {
-            orderBy: { createdAt: 'desc' },
+            orderBy: { createdAt: "desc" },
             take: 1,
           },
           assignment: {
@@ -70,7 +70,7 @@ async function listBookingsHandler(request: NextRequest): Promise<NextResponse> 
           },
           reservation: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
@@ -108,13 +108,15 @@ async function listBookingsHandler(request: NextRequest): Promise<NextResponse> 
       deliveryDate: booking.deliveryDate,
       deliveredAt: booking.deliveredAt,
       notes: booking.notes,
-      paymentStatus: booking.payments[0]?.status || (booking.status === 'CANCELLED' ? 'CANCELLED' : 'PENDING'),
+      paymentStatus:
+        booking.payments[0]?.status ||
+        (booking.status === "CANCELLED" ? "CANCELLED" : "PENDING"),
       paymentAmount: booking.payments[0]?.amount,
       deliveryPartnerId: booking.assignment?.partnerId,
       deliveryPartnerName: booking.assignment?.partner?.name,
       cylinderReserved: Boolean(booking.reservation),
       createdAt: booking.createdAt,
-      updatedAt: booking.updatedAt
+      updatedAt: booking.updatedAt,
     }));
 
     return NextResponse.json({
@@ -125,21 +127,23 @@ async function listBookingsHandler(request: NextRequest): Promise<NextResponse> 
           page,
           limit,
           total,
-          pages: Math.ceil(total / limit)
-        }
-      }
+          pages: Math.ceil(total / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Failed to fetch bookings:', error);
+    console.error("Failed to fetch bookings:", error);
     return NextResponse.json(
-      { success: false, message: 'Failed to fetch bookings' },
-      { status: 500 }
+      { success: false, message: "Failed to fetch bookings" },
+      { status: 500 },
     );
   }
 }
 
 // POST - Create new booking
-async function createBookingHandler(request: NextRequest): Promise<NextResponse> {
+async function createBookingHandler(
+  request: NextRequest,
+): Promise<NextResponse> {
   try {
     const createSchema = z.object({
       userId: z.string().min(1),
@@ -148,12 +152,20 @@ async function createBookingHandler(request: NextRequest): Promise<NextResponse>
       userPhone: z.string().nullable().optional(),
       userAddress: z.string().nullable().optional(),
       quantity: z.number().int().min(1).max(1000),
-      paymentMethod: z.enum(['COD', 'UPI']),
+      paymentMethod: z.enum(["COD", "UPI"]),
       receiverName: z.string().optional(),
       receiverPhone: z.string().optional(),
       expectedDate: z.string().optional(),
       notes: z.string().max(1000).optional(),
-      status: z.enum(['PENDING','APPROVED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED']).default('APPROVED'),
+      status: z
+        .enum([
+          "PENDING",
+          "APPROVED",
+          "OUT_FOR_DELIVERY",
+          "DELIVERED",
+          "CANCELLED",
+        ])
+        .default("APPROVED"),
     });
 
     const parsed = createSchema.parse(await parseRequestBody(request));
@@ -175,21 +187,21 @@ async function createBookingHandler(request: NextRequest): Promise<NextResponse>
     // Validate required fields
     if (!userId || !quantity || !paymentMethod) {
       return NextResponse.json(
-        { success: false, message: 'Missing required fields' },
-        { status: 400 }
+        { success: false, message: "Missing required fields" },
+        { status: 400 },
       );
     }
 
     // Check user quota
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { remainingQuota: true }
+      select: { remainingQuota: true },
     });
 
     if (!user || user.remainingQuota < quantity) {
       return NextResponse.json(
-        { success: false, message: 'User quota exceeded' },
-        { status: 400 }
+        { success: false, message: "User quota exceeded" },
+        { status: 400 },
       );
     }
 
@@ -209,13 +221,13 @@ async function createBookingHandler(request: NextRequest): Promise<NextResponse>
         notes,
         status,
         requestedAt: new Date(),
-      }
+      },
     });
 
     // Update user quota
     await prisma.user.update({
       where: { id: userId },
-      data: { remainingQuota: { decrement: quantity } }
+      data: { remainingQuota: { decrement: quantity } },
     });
 
     // Create booking event
@@ -225,8 +237,8 @@ async function createBookingHandler(request: NextRequest): Promise<NextResponse>
         status: status,
         title: `Booking ${status.toLowerCase()}`,
         description: `Booking created by admin with status: ${status}`,
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+      },
     });
 
     // Create payment record
@@ -235,30 +247,37 @@ async function createBookingHandler(request: NextRequest): Promise<NextResponse>
         bookingId: booking.id,
         amount: quantity * 1100, // ₹1100 per cylinder
         method: paymentMethod,
-        status: paymentMethod === 'UPI' ? 'PENDING' : 'PENDING',
-        createdAt: new Date()
-      }
+        status: paymentMethod === "UPI" ? "PENDING" : "PENDING",
+        createdAt: new Date(),
+      },
     });
 
     // Send confirmation email if UPI payment
-    if (paymentMethod === 'UPI') {
+    if (paymentMethod === "UPI") {
       // This will be handled by the email service
-      console.log('UPI payment pending - email should be sent');
+      console.log("UPI payment pending - email should be sent");
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Booking created successfully',
-      data: booking
+      message: "Booking created successfully",
+      data: booking,
     });
   } catch (error) {
-    console.error('Failed to create booking:', error);
+    console.error("Failed to create booking:", error);
     return NextResponse.json(
-      { success: false, message: 'Failed to create booking' },
-      { status: 500 }
+      { success: false, message: "Failed to create booking" },
+      { status: 500 },
     );
   }
 }
 
-export const GET = withMiddleware(listBookingsHandler, { requireAuth: true, requireAdmin: true });
-export const POST = withMiddleware(createBookingHandler, { requireAuth: true, requireAdmin: true, validateContentType: true });
+export const GET = withMiddleware(listBookingsHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+});
+export const POST = withMiddleware(createBookingHandler, {
+  requireAuth: true,
+  requireAdmin: true,
+  validateContentType: true,
+});

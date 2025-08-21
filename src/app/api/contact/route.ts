@@ -1,12 +1,25 @@
-import { NextRequest } from 'next/server';
-import { withMiddleware, successResponse, parseRequestBody, errorResponse } from '@/lib/api-middleware';
-import { sendContactAcknowledgementEmail, sendContactFormToAdmin } from '@/lib/email';
-import { prisma } from '@/lib/db';
+import { NextRequest } from "next/server";
+import {
+  withMiddleware,
+  successResponse,
+  parseRequestBody,
+  errorResponse,
+} from "@/lib/api-middleware";
+import {
+  sendContactAcknowledgementEmail,
+  sendContactFormToAdmin,
+} from "@/lib/email";
+import { prisma } from "@/lib/db";
 
-const handler = async (request: NextRequest, context?: Record<string, unknown>) => {
-  const session = (context as any)?.session as { user?: { id: string } } | undefined;
+const handler = async (
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) => {
+  const session = (context as { session?: { user?: { id: string } } })?.session as
+    | { user?: { id: string } }
+    | undefined;
   if (!session?.user?.id) {
-    return errorResponse('AUTH_REQUIRED', 'Authentication required', 401);
+    return errorResponse("AUTH_REQUIRED", "Authentication required", 401);
   }
 
   const body = await parseRequestBody(request);
@@ -21,7 +34,11 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
   } = (body || {}) as Record<string, string | undefined>;
 
   if (!subject || !message) {
-    return errorResponse('VALIDATION_ERROR', 'Subject and message are required', 400);
+    return errorResponse(
+      "VALIDATION_ERROR",
+      "Subject and message are required",
+      400,
+    );
   }
 
   // Load user profile for email/name
@@ -30,11 +47,11 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
     select: { name: true, email: true },
   });
   if (!user) {
-    return errorResponse('NOT_FOUND', 'User not found', 404);
+    return errorResponse("NOT_FOUND", "User not found", 404);
   }
 
   // Persist contact message
-  const saved = await (prisma as any).contactMessage.create({
+  const saved = await prisma.contactMessage.create({
     data: {
       userId: session.user.id,
       subject,
@@ -44,7 +61,7 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
       relatedBookingId: relatedBookingId || null,
       preferredContact: preferredContact || null,
       phone: phone || null,
-      status: 'NEW',
+      status: "NEW",
     },
   });
 
@@ -62,9 +79,14 @@ const handler = async (request: NextRequest, context?: Record<string, unknown>) 
   });
   void sendContactAcknowledgementEmail(user.email, user.name, subject);
 
-  return successResponse({ submitted: true, id: saved.id }, 'Your message has been sent');
+  return successResponse(
+    { submitted: true, id: saved.id },
+    "Your message has been sent",
+  );
 };
 
-export const POST = withMiddleware(handler, { requireAuth: true, validateContentType: true, rateLimit: { type: 'email' } });
-
-
+export const POST = withMiddleware(handler, {
+  requireAuth: true,
+  validateContentType: true,
+  rateLimit: { type: "email" },
+});
