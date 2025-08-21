@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "setup": "node scripts/setup.js",
     "admin:create": "node scripts/create-admin.js",
     "admin:delete": "node scripts/delete-admin.js",
