@@ -24,7 +24,7 @@
 
 
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-brightgreen?style=for-the-badge&logo=vercel)](https://gas-agency-system-phi.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-brightgreen?style=for-the-badge&logo=vercel)](https://agani-gas-agency-system.vercel.app)
 [![Vercel](https://img.shields.io/badge/Hosted%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
 [![Next.js](https://img.shields.io/badge/Next.js-15.4.7-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
@@ -61,12 +61,12 @@
 
 ## 🌐 Live Demo
 
-[![Live Demo](https://img.shields.io/badge/Open-Live%20Demo-22c55e?style=for-the-badge&logo=vercel&logoColor=white)](https://gas-agency-system-phi.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Open-Live%20Demo-22c55e?style=for-the-badge&logo=vercel&logoColor=white)](https://agani-gas-agency-system.vercel.app)
 
 Quick links:
-- User Dashboard: `https://gas-agency-system-phi.vercel.app/user`
-- Admin Dashboard: `https://gas-agency-system-phi.vercel.app/admin`
-- Login: `https://gas-agency-system-phi.vercel.app/login`
+- User Dashboard: `https://agani-gas-agency-system.vercel.app/user`
+- Admin Dashboard: `https://agani-gas-agency-system.vercel.app/admin`
+- Login: `https://agani-gas-agency-system.vercel.app/login`
 
 Note: Some features require environment configuration (email, DB). Demo may have limited permissions.
 
