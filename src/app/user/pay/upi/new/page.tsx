@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import QRCode from "qrcode";
 import { toast } from "react-hot-toast";
 
-export default function PrePaymentUPIPage() {
+function PrePaymentUPIContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -421,5 +421,13 @@ export default function PrePaymentUPIPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PrePaymentUPIPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PrePaymentUPIContent />
+    </Suspense>
   );
 }

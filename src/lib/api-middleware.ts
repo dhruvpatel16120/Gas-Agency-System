@@ -36,7 +36,7 @@ export function withMiddleware(
 ) {
   return async (
     request: NextRequest,
-    context?: Record<string, unknown>,
+    context: { params: Promise<Record<string, string>> },
   ): Promise<NextResponse> => {
     try {
       // Content-Type validation for POST/PUT requests
@@ -126,7 +126,10 @@ export function withMiddleware(
       }
 
       // Call the actual handler
-      const response = await handler(request, { session, ...context });
+      const response = await handler(
+        request,
+        ({ session, ...(context as unknown as Record<string, unknown>) }) as Record<string, unknown>,
+      );
 
       // Add security headers to response
       return addSecurityHeaders(response);

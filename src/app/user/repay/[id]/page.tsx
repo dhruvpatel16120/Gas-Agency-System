@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui";
 import { Button } from "@/components/ui";
@@ -19,9 +19,10 @@ type Booking = {
   paymentStatus?: string;
 };
 
-export default function RepayPage({ params }: { params: { id: string } }) {
+export default function RepayPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const params = useParams();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(false);
   const [upiTxnId, setUpiTxnId] = useState("");

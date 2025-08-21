@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, CardContent } from "@/components/ui";
 import { Flame, CheckCircle, AlertCircle, Mail, RefreshCw } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const [verificationStatus, setVerificationStatus] = useState<
     "loading" | "success" | "error" | "expired"
   >("loading");
@@ -203,29 +203,30 @@ export default function VerifyEmailPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
             <Flame className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Gas Agency System
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Gas Agency System</h1>
           <p className="text-gray-600">Email Verification</p>
         </div>
 
-        {/* Verification Card */}
         <Card className="shadow-xl">
           <CardContent className="p-8">{renderContent()}</CardContent>
         </Card>
 
-        {/* Footer */}
         <div className="text-center mt-8">
-          <p className="text-xs text-gray-500">
-            © 2024 Gas Agency System. All rights reserved.
-          </p>
+          <p className="text-xs text-gray-500">© 2024 Gas Agency System. All rights reserved.</p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

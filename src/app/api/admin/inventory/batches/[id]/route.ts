@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { BatchStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   withMiddleware,
@@ -75,7 +76,7 @@ async function updateBatchHandler(
         quantity: body.quantity,
         notes: body.notes,
         receivedAt: new Date(body.receivedAt),
-        status: body.status as any,
+        status: body.status as BatchStatus,
       },
     });
 

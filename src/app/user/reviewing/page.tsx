@@ -3,9 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import UserNavbar from "@/components/UserNavbar";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
-export default function PaymentReviewingPage() {
+function PaymentReviewingContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useSearchParams();
@@ -67,5 +67,13 @@ export default function PaymentReviewingPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function PaymentReviewingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <PaymentReviewingContent />
+    </Suspense>
   );
 }

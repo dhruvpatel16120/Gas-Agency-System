@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import UserNavbar from "@/components/UserNavbar";
 
-export default function BookingGeneratedPage() {
+function BookingGeneratedContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useSearchParams();
@@ -71,5 +71,13 @@ export default function BookingGeneratedPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BookingGeneratedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <BookingGeneratedContent />
+    </Suspense>
   );
 }
