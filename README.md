@@ -429,11 +429,11 @@ contact_replies (id, messageId, authorId, body, isAdmin, createdAt)
 ## 🎨 Screenshots
 
 ### **User Interface**
-| ![User Dashboard](screenshots/user-dashboard.png) | ![Booking Form](screenshots/booking-form.png) |
+| ![User Dashboard](preview/user-dashboard.png) | ![Booking Form](preview/booking-form.png) |
 |:---:|:---:|
 | **User Dashboard** - Main user interface with quota tracking | **Booking Form** - Easy cylinder booking process |
 
-| ![Payment Interface](screenshots/payment-interface.png) | ![Tracking Page](screenshots/tracking-page.png) |
+| ![Payment Interface](preview/payment-interface.png) | ![Tracking Page](screenshots/tracking-page.png) |
 |:---:|:---:|
 | **Payment Interface** - Secure UPI payment processing | **Tracking Page** - Real-time delivery tracking |
 
