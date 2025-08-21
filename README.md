@@ -24,6 +24,8 @@
 
 
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-brightgreen?style=for-the-badge&logo=vercel)](https://gas-agency-system-phi.vercel.app)
+[![Vercel](https://img.shields.io/badge/Hosted%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
 [![Next.js](https://img.shields.io/badge/Next.js-15.4.7-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-6.14.0-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
@@ -37,6 +39,7 @@
 
 ## 📋 Table of Contents
 
+- [🌐 Live Demo](#-live-demo)
 - [🌟 Features](#-features)
 - [🛠️ Tech Stack](#️-tech-stack)
 - [📦 Prerequisites](#-prerequisites)
@@ -55,6 +58,17 @@
 - [📞 Contact](#-contact)
 
 ## 🌟 Features
+
+## 🌐 Live Demo
+
+[![Live Demo](https://img.shields.io/badge/Open-Live%20Demo-22c55e?style=for-the-badge&logo=vercel&logoColor=white)](https://gas-agency-system-phi.vercel.app)
+
+Quick links:
+- User Dashboard: `https://gas-agency-system-phi.vercel.app/user`
+- Admin Dashboard: `https://gas-agency-system-phi.vercel.app/admin`
+- Login: `https://gas-agency-system-phi.vercel.app/login`
+
+Note: Some features require environment configuration (email, DB). Demo may have limited permissions.
 
 ### 🔐 **Authentication & User Management**
 
@@ -473,6 +487,8 @@ contact_replies (id, messageId, authorId, body, isAdmin, createdAt)
 
 ## 🎨 Screenshots
 
+> A glimpse of the clean, modern UI across user and admin experiences.
+
 ### **User Interface**
 
 |        ![User Dashboard](preview/user_dashboard.png)         |       ![Booking Form](preview/booking.png)       |
@@ -622,9 +638,9 @@ SOFTWARE.
 
 ### 🌐 Project Links
 
-- **Live Demo**: [gas-agency-system.vercel.app](https://agani-gas-agency-system.vercel.app/)
-- **Repository**: [github.com/dhruvpatel16120/Gas-Agency-System/](https://github.com/dhruvpatel16120/Gas-Agency-System/)
-- **Documentation**: [Gas-Agency-System/Documentation.md](https://github.com/dhruvpatel16120/Gas-Agency-System/Documentation.md)
+- **Live Demo**: [gas-agency-system-phi.vercel.app](https://gas-agency-system-phi.vercel.app)
+- **Repository**: [github.com/dhruvpatel16120/Gas-Agency-System](https://github.com/dhruvpatel16120/Gas-Agency-System)
+- **Documentation**: [Documentation.md](./Documentation.md)
 - **Issues**: [GitHub Issues](https://github.com/dhruvpatel16120/Gas-Agency-System/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/dhruvpatel16120/Gas-Agency-System/discussions)
 
