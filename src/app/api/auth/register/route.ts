@@ -93,14 +93,7 @@ async function registerHandler(request: NextRequest) {
   Promise.allSettled([
     sendWelcomeEmail(email, name),
     sendEmailVerification(email, name, verificationToken),
-  ]).then((results) => {
-    results.forEach((result, index) => {
-      if (result.status === "rejected") {
-        const emailType = index === 0 ? "welcome" : "verification";
-        console.error(`Failed to send ${emailType} email:`, result.reason);
-      }
-    });
-  });
+  ]);
 
   return successResponse(
     user,
