@@ -1,4 +1,7 @@
-## Gas Agency System – Full Documentation
+# User Dashboard & Booking System Documentation
+
+Welcome to the documentation for the User Dashboard and Gas Cylinder Booking System.  
+This guide provides an overview of the available features, usage instructions, and technical details for developers and users.
 
 This document covers the architecture, data model, features, API surface area, and developer workflows for the Gas Agency System. It’s intended for engineers working on the app or operating it in production.
 
@@ -325,10 +328,5 @@ Manual testing checklist (high-value):
   - Cancels non-success payments
   - Restores user quota
   - Adds reason to booking notes
-
-# User Dashboard & Booking System Documentation
-
-Welcome to the documentation for the User Dashboard and Gas Cylinder Booking System.  
-This guide provides an overview of the available features, usage instructions, and technical details for developers and users.
 
 ---
