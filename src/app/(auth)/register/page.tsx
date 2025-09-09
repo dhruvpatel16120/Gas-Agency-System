@@ -225,7 +225,7 @@ export default function RegisterPage() {
                 required
                 autoComplete="name"
               />
-
+              <p className="text-sm text-grey-600" >Note: It contains only Letter, Number and Spaces not any special Character </p>
               {/* User ID Input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
