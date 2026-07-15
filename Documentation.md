@@ -1,332 +1,312 @@
-# User Dashboard & Booking System Documentation
+# 📚 Gas Agency System - Technical Documentation
 
-Welcome to the documentation for the User Dashboard and Gas Cylinder Booking System.  
-This guide provides an overview of the available features, usage instructions, and technical details for developers and users.
+> Comprehensive technical documentation for the Gas Agency System full-stack platform.
 
-This document covers the architecture, data model, features, API surface area, and developer workflows for the Gas Agency System. It’s intended for engineers working on the app or operating it in production.
+## 📋 Table of Contents
 
-### Contents
-- Overview and Tech Stack
-- Local Setup and Environment
-- Database Model (Prisma)
-- Core Business Domains
-  - Bookings and Payments
-  - Inventory Management
-  - Delivery Partners and Assignments
-  - Users and Admins
-  - Contact Management
-- User Dashboard
-- Admin Dashboard
-- API Architecture and Endpoints
-- Authentication and Authorization
-- Email System
-- Libraries and Utilities
-- Error Handling and Security
-- Testing and Quality
-- Deployment Notes
+1. [System Overview](#-system-overview)
+2. [Architecture](#-architecture)
+3. [Installation &amp; Setup Guide](#-installation--setup-guide)
+4. [Authentication System](#-authentication-system)
+5. [Database Schema](#-database-schema)
+6. [API Reference](#-api-reference)
+7. [Security Implementation](#-security-implementation)
+8. [Deployment Guide](#-deployment-guide)
+9. [Troubleshooting](#-troubleshooting)
+10. [Performance Optimization](#-performance-optimization)
+11. [Testing Strategy](#-testing-strategy)
+12. [Contributing Guidelines](#-contributing-guidelines)
 
 ---
 
-#### Create build (fix: "Could not find a production build in the '.next' directory")
+## 🏗️ System Overview
 
-If you see this error when starting the server, it means the production build hasn't been created yet. Run:
+The **Gas Agency System** is a modern full-stack web application designed to streamline gas cylinder bookings, payment validation, quota allocations, inventory auditing, and delivery operations. It provides role-based workspaces for **Customers (Users)** and **Administrators (Admins)**.
 
-```bash
-npm run build && npm start
+### Key Functional Domains
+
+- **User Dashboard & Bookings**: Order cylinders, trace delivery timeline, submit payment confirmations.
+- **Quota Control**: Limits users to 12 cylinder bookings per calendar year.
+- **Admin Dashboard**: Real-time business analytics, user lists, support ticketing, settings.
+- **Inventory Control**: Live stock counts, adjustments logging, intake batch supplier invoicing.
+- **Delivery Workflow**: Active assignment to service area partners and multi-step delivery status tracking.
+
+---
+
+## 🏛️ Architecture
+
+### Application Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Presentation Layer                       │
+├─────────────────────────────────────────────────────────────┤
+│  React Components, Next.js Pages (src/app), Framer Motion  │
+┌─────────────────────────────────────────────────────────────┐
+│                    Business Logic Layer                     │
+├─────────────────────────────────────────────────────────────┤
+│  Next.js Server Actions & API Handlers, Zod Validation      │
+┌─────────────────────────────────────────────────────────────┐
+│                    Data Access Layer                        │
+├─────────────────────────────────────────────────────────────┤
+│  Prisma ORM, PostgreSQL Databases, NextAuth Session Context │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Notes:
-- Ensure your environment variables (e.g., `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`) are set.
-- The build script already runs `prisma generate`. Make sure your database is reachable in production.
-- Re-run `npm run build` after dependency or code changes before `npm start`.
-  
-## Overview and Tech Stack
+### Technology Matrix
 
-- Framework: Next.js App Router (TypeScript)
-- ORM: Prisma (PostgreSQL)
-- Auth: NextAuth (credentials + OAuth capable)
-- Styling: Tailwind (through global CSS/utility classes in components)
-- Email: SMTP (via `lib/email`)
-- Payments: UPI (mock/gateway-like flow with admin review)
-- Charts/Analytics UI: Rendered with custom React components (no external charting lib currently)
-
-Repository structure highlights:
-- `src/app` – All application routes (user/admin/api)
-- `src/lib` – Auth, DB, email, security, validation, middleware
-- `src/components` – UI and shared components
-- `prisma` – Schema and migrations
+- **Core Framework**: Next.js 15 (App Router, TypeScript)
+- **Database Engine**: PostgreSQL (Local/Supabase/Railway/Neon)
+- **Database ORM**: Prisma Client 6.14.0
+- **Auth Provider**: NextAuth.js (Session-based, Credentials flow)
+- **Notification Engine**: SMTP (Nodemailer)
+- **Invoice Engine**: Puppeteer PDF generator
 
 ---
 
-## Local Setup and Environment
+## 🚀 Installation & Setup Guide
 
-1) Install dependencies:
+### System Prerequisites
+
+Ensure the following are installed:
+
+- **Node.js** (v18.0.0 or higher)
+- **npm** (v9.0.0 or higher) or **yarn**
+- **Git**
+- **PostgreSQL Database** (supported types below)
+
+### Step-by-Step Installation
+
+#### 1. Clone the Codebase
+
+```bash
+git clone https://github.com/dhruvpatel16120/Gas-Agency-System.git
+cd Gas-Agency-System
+```
+
+#### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-2) Configure environment:
+#### 3. Database Selection & Connection Parameters
 
-Create `.env` with keys such as:
+Prisma requires two variables in a pooled cloud database environment to function correctly:
+
+- `DATABASE_URL`: Transaction-based pooled connection (e.g. port 6543) for application queries.
+- `DIRECT_URL`: Unpooled direct connection (e.g. port 5432) to execute database migrations (DDL commands) without `prepared statement "s1" already exists` errors.
+
+Choose your connection setup:
+
+##### Option A: Local PC PostgreSQL
+
+1. Ensure PostgreSQL is installed locally and started.
+2. Create a database called `gas_agency`.
+3. Configure your `.env`:
+   ```env
+   DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/gas_agency?schema=public"
+   DIRECT_URL="postgresql://postgres:yourpassword@localhost:5432/gas_agency?schema=public"
+   ```
+
+##### Option B: Supabase PostgreSQL
+
+1. Create a Supabase Project.
+2. Navigate to **Project Settings** → **Database**.
+3. Under **Connection Pooler**, copy the **Transaction Mode** URI (port `6543`) for `DATABASE_URL`. Ensure it includes `?pgbouncer=true`.
+4. Copy the **Session Mode** URI or direct connection URI (port `5432`) for `DIRECT_URL`.
+   ```env
+   DATABASE_URL="postgresql://postgres.yourprojectref:yourpassword@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+   DIRECT_URL="postgresql://postgres.yourprojectref:yourpassword@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+   ```
+
+##### Option C: Railway PostgreSQL
+
+1. Launch a PostgreSQL instance in Railway.
+2. Copy the **`DATABASE_PUBLIC_URL`** from your PostgreSQL variables.
+3. Configure your `.env` (since Railway doesn't enforce transaction pooling by default, you can point both to the same URL unless using a PgBouncer plugin):
+   ```env
+   DATABASE_URL="postgresql://postgres:yourpassword@host:port/railway"
+   DIRECT_URL="postgresql://postgres:yourpassword@host:port/railway"
+   ```
+
+##### Option D: Neon Serverless PostgreSQL
+
+1. Create a Neon Project.
+2. In the Neon dashboard, configure connection details.
+3. Copy the **Pooled Connection** string for `DATABASE_URL`.
+4. Copy the **Unpooled Connection** string (check "Use pooled connection" off) for `DIRECT_URL`.
+   ```env
+   DATABASE_URL="postgresql://user:password@ep-pooled-instance.aws.neon.tech/neondb?sslmode=require"
+   DIRECT_URL="postgresql://user:password@ep-direct-instance.aws.neon.tech/neondb?sslmode=require"
+   ```
+
+#### 4. Run Interactive Setup CLI
+
+Configure all local parameters easily:
 
 ```bash
-DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DB
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-strong-secret
-
-# SMTP for email
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your-user
-SMTP_PASS=your-pass
-SMTP_FROM="Gas Agency <no-reply@gasagency.com>"
-
-# UPI config (admin collection ID)
-ADMIN_UPI_ID=merchant@upi
+npm run setup
 ```
 
-3) Apply database migrations and generate Prisma client:
+Follow the steps to configure emails (SMTP Gmail App Passwords), Auth URLs, and your database connection strings.
+
+#### 5. Provision the Database & Client
+
+Launch the interactive database setup CLI to push the schema, generate Prisma Client, and seed the default data:
 
 ```bash
-npx prisma migrate deploy
-npx prisma generate
+npm run setup:db
 ```
 
-4) Start dev server:
+Inside the CLI, run:
+
+1. **Option 1**: Generate Prisma Client.
+2. **Option 2** or **Option 3**: Run database setup/migrations.
+3. **Option 5**: Run database seed.
+
+#### 6. Create Initial Admin Credentials
+
+Run the admin operations tool to create your first administrative user:
+
+```bash
+npm run admin
+```
+
+Select **Create or Update Admin User** from the menu and fill in the credentials.
+
+#### 7. Launch Development Server
 
 ```bash
 npm run dev
 ```
 
-Linting and type checks:
+Open [http://localhost:3000](http://localhost:3000) to verify.
 
-```bash
-npm run lint
-npx tsc --noEmit
+---
+
+## 🔐 Authentication System
+
+The application uses **NextAuth.js v4** with the Credentials authentication strategy and Prisma adapter:
+
+- **Authentication Flow**: Users log in via email and password. NextAuth generates a secure session cookie.
+- **Permissions Middleware**: Handled inside `src/middleware.ts` and the `withMiddleware` API wrapper. Ensures users cannot query administrative folders `/admin/*` or endpoint routes `/api/admin/*`.
+- **Password Hashing**: `bcryptjs` (salt rounds: 12) secures passwords before database storage.
+- **Verification Tokens**: Generated securely via crypto utils to verify emails and reset credentials.
+
+---
+
+## 🗄️ Database Schema
+
+Here is a breakdown of the primary database entities defined in `prisma/schema.prisma`:
+
+### Model Relationships
+
+```mermaid
+erDiagram
+    users ||--o{ bookings : "places"
+    users ||--o{ accounts : "contains"
+    users ||--o{ sessions : "has"
+    users ||--o{ contact_messages : "submits"
+    users ||--o{ contact_replies : "replies"
+
+    bookings ||--o{ payments : "paid_by"
+    bookings ||--o{ booking_events : "logs"
+    bookings ||--o| stock_reservations : "reserves"
+    bookings ||--o| delivery_assignments : "assigns"
+    bookings ||--o{ stock_adjustments : "adjusts"
+
+    cylinder_stock ||--o{ stock_adjustments : "tracks"
+    cylinder_stock ||--o{ stock_reservations : "holds"
+
+    cylinder_batches ||--o{ stock_adjustments : "creates"
+    delivery_partners ||--o{ delivery_assignments : "assigned_to"
 ```
 
----
+### Table Specifications
 
-## Database Model (Prisma)
-
-Models (selected fields):
-
-- `User`
-  - `id`, `email`, `name`, `userId`, `phone`, `address`, `role (USER|ADMIN)`
-  - `remainingQuota`, `emailVerified`, `resetToken`, `emailVerificationToken`
-  - Relations: `bookings`, `accounts`, `sessions`, contact messages/replies
-
-- `Booking`
-  - `id`, `userId`, `userName`, `userEmail`, `userPhone`, `userAddress`
-  - `paymentMethod (COD|UPI)`, `quantity`, `status (PENDING|APPROVED|OUT_FOR_DELIVERY|DELIVERED|CANCELLED)`
-  - `requestedAt`, `deliveryDate`, `expectedDate`, `deliveredAt`
-  - Relations: `events`, `payments`, `reservation`, `assignment`, `adjustments`
-
-- `BookingEvent`
-  - Timeline of status changes and notable actions for each booking
-
-- `Payment`
-  - `id`, `bookingId`, `amount` (INR), `method (COD|UPI)`
-  - `status (PENDING|SUCCESS|FAILED|CANCELLED)`, `upiTxnId`
-
-- `CylinderStock`
-  - Singleton `id = "default"`, `totalAvailable`
-  - Relations: `adjustments`, `reservations`
-
-- `StockAdjustment`
-  - `delta`, `type (RECEIVE|ISSUE|DAMAGE|AUDIT|CORRECTION)`, `reason`, `notes`
-  - Optional links: `bookingId`, `batchId`
-
-- `CylinderBatch`
-  - Supplier intakes. Fields: `supplier`, `invoiceNo`, `quantity`, `receivedAt`, `status (ACTIVE|DEPLETED|EXPIRED)`
-
-- `DeliveryPartner`
-  - `name`, `phone`, `email?`, `vehicleNumber?`, `serviceArea?`, `isActive`
-
-- `DeliveryAssignment`
-  - `bookingId`, `partnerId`, `status (ASSIGNED|PICKED_UP|OUT_FOR_DELIVERY|DELIVERED|FAILED)`
-  - `scheduledDate?`, `scheduledTime?`, `priority`, `notes`
-
-- `ContactMessage` / `ContactReply`
-  - Simple support/ticketing between users and admins.
-
-See full schema in `prisma/schema.prisma`.
+- **`users`**: Manages customer and administrator profiles, email verification tokens, and quota limits.
+- **`bookings`**: Stores cylinder quantities, shipping coordinates, status, and expected delivery windows.
+- **`booking_events`**: Tracks real-time events (e.g. `PENDING`, `APPROVED`, `DELIVERED`) displayed on the user's progress timeline.
+- **`payments`**: Handles Cash on Delivery and UPI tracking (storing transaction IDs for administrative review).
+- **`cylinder_stock`**: Singleton row tracking current global available cylinders.
+- **`stock_adjustments`**: Records all changes to the inventory (intakes, issues, corrections).
+- **`cylinder_batches`**: Tracks cylinder shipments received from suppliers.
+- **`delivery_partners`**: Lists dispatch agents, their service zones, and capacity constraints.
+- **`delivery_assignments`**: Maps an approved booking to a delivery partner with status timelines.
 
 ---
 
-## Core Business Domains
+## 🔌 API Reference
 
-### Bookings and Payments
-- A `Booking` is created by the admin or a user (user flow depends on application settings).
-- Each booking has a payment method: `COD` or `UPI`.
-- UPI flow: User submits a UPI transaction ID; an admin reviews and marks the latest payment `SUCCESS` or `FAILED`.
-- Events (`BookingEvent`) are recorded on updates (approval, out for delivery, delivered, cancellation, payment review, etc.).
+API routes are structured under `/api/*` and use a unified response format:
 
-### Inventory Management
-- Central stock (`CylinderStock`) increases with `CylinderBatch` receipts and decreases with `ISSUE` adjustments.
-- Adjustments are logged as `StockAdjustment` records.
-- Admin can add/edit/delete batches and adjust stock via API/console.
+- **Success Format**: `{ success: true, data: [...] }`
+- **Error Format**: `{ success: false, error: "Reason" }`
 
-### Delivery Partners and Assignments
-- Admin can create and manage `DeliveryPartner` records (name, phone, service area, activity status).
-- Bookings can be assigned to a partner (`DeliveryAssignment`) once approved.
-- Status transitions in assignments update booking status and create events.
+### Selected API Handlers
 
-### Users and Admins
-- Roles: `USER`, `ADMIN`.
-- Admins manage users (create, edit, stats) and bookings, inventory, deliveries, settings.
-- Users manage profile, bookings, and repayment flows for failed UPI.
-
-### Contact Management
-- Users can submit messages; admins can reply.
-- Stats API aggregates counts and trends.
+- **Authentication**: `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/verify-email`.
+- **User Commands**: `GET /api/bookings` (list bookings), `POST /api/bookings` (request cylinder), `GET /api/bookings/track/[id]` (timeline tracking).
+- **Admin Commands**:
+  - `GET /api/admin/dashboard` (business metrics).
+  - `GET /api/admin/users` (list/edit accounts).
+  - `GET /api/admin/bookings/review-payments` (review pending UPI submissions).
+  - `POST /api/admin/deliveries/assignments` (assign courier to booking).
+  - `POST /api/admin/inventory/batches` (receive stock intake).
 
 ---
 
-## User Dashboard
+## 🔒 Security Implementation
 
-Key pages under `src/app/user`:
-- `page.tsx` – Landing dashboard
-- `book/` – Book a cylinder
-- `bookings/` – History and details
-- `track/[id]/` – Booking tracking timeline and delivery progress
-- `pay/upi/` – Initial UPI payment flow
-- `repay/[id]/` – Retry UPI payment with new transaction ID
-- `profile/` – Profile summary and edit screen
-- `contact/` – Contact/support form
+### Rate Limiting & CSRF Protection
 
-Highlights:
-- Clear status chips (`PENDING`, `APPROVED`, `OUT_FOR_DELIVERY`, `DELIVERED`, `CANCELLED`).
-- Booking timeline shows key milestones + synthesized events when none exist.
-- UPI repay page validates UPI transaction format prior to submission.
+- **CSRF Token Validation**: Validates client session headers on all mutable REST methods (POST, PUT, DELETE).
+- **Security Headers**: Standard headers injected automatically via `src/lib/api-middleware.ts` including Content Security Policy (CSP), HTTP Strict Transport Security (HSTS), and Frame Options.
+
+### Data Sanitization & Schema Validation
+
+All inbound parameters are parsed through strict **Zod Schemas** (`src/lib/validation.ts`) to prevent type-tampering or payload injection.
 
 ---
 
-## Admin Dashboard
+## 🚀 Deployment Guide
 
-Key pages under `src/app/admin`:
-- `page.tsx` – Admin landing (KPIs)
-- `bookings/` – List, review payments, analytics, export, and bulk actions
-- `deliveries/` – Active, analytics, partners CRUD, assignments, stats
-- `inventory/` – Batches list, new/edit batches, stock adjustments
-- `users/` – Users CRUD and stats
-- `contacts/` – Manage contact messages and replies
-- `settings/` – System settings (API available, page placeholder)
+### Vercel Deployment Flow
 
-Highlights:
-- Delivery analytics and exports (time series, partner and area performance, trends).
-- Payment review flows for UPI with event logging and optional customer emails.
-- Bulk actions for approving, assigning deliveries, and cancelling.
+1. Fork and connect the GitHub repository to your **Vercel** dashboard.
+2. In Vercel, configure the Environment variables corresponding to your `.env` (including `DATABASE_URL` and `DIRECT_URL`).
+3. Set the **Build Command** to `npm run build`.
+4. Run `npx prisma migrate deploy` in your production build phase.
 
 ---
 
-## API Architecture and Endpoints
+## 🔧 Troubleshooting
 
-All APIs are under `src/app/api`. The `withMiddleware` wrapper enforces:
-- Auth (requireAuth, requireAdmin)
-- Content-Type checks
-- Optional CSRF/rate limiting presets
+### 1. `Could not find a production build in the '.next' directory`
 
-Selected endpoint groups:
+- **Cause**: Next.js was started (`npm run start`) before a production build was created.
+- **Solution**: Execute `npm run build` prior to starting the production server.
 
-- Auth: `api/auth/*` (NextAuth handlers)
-- Settings: `api/settings/`
-- Users (Admin): `api/admin/users` (+ `.../stats`, `.../[id]`, `.../[id]/action`)
-- Bookings (Admin): `api/admin/bookings` (+ `analytics`, `stats`, `review-payments`, `bulk-action`)
-- Deliveries (Admin): `api/admin/deliveries` (+ `analytics`, `partners`, `assignments`, `active`, `recent`, `stats`)
-- Inventory (Admin): `api/admin/inventory` (+ `batches`, `adjustments`, `analytics`)
-- Public User APIs: `api/bookings`, `api/bookings/track/[id]`, `api/user/profile`, `api/payments/upi/*`, `api/contact`
+### 2. `EPERM: operation not permitted` on Windows
 
-Conventions:
-- Success responses use `{ success: true, data, message? }` via `successResponse`.
-- Errors use `errorResponse` or centralized `handleAPIError`.
-- Most handlers accept query parameters for pagination, sorting, and filters.
+- **Cause**: The local Next.js development server is active and locks the generated Prisma client node modules.
+- **Solution**: Stop your development server (Ctrl+C), run `npm run db:generate`, and restart your server.
+
+### 3. `ERROR: prepared statement "s1" already exists`
+
+- **Cause**: Running database migrations directly against a transaction pooler (e.g. Supabase port 6543).
+- **Solution**: Ensure your `DIRECT_URL` is set to an unpooled session-mode database endpoint (port 5432) and configured in your `schema.prisma` file.
 
 ---
 
-## Authentication and Authorization
+## 📊 Performance Optimization
 
-- Session managed by NextAuth (`src/lib/auth.ts`).
-- `withMiddleware` can enforce:
-  - `requireAuth: true` (must be logged in)
-  - `requireAdmin: true` (must be ADMIN)
-  - `validateContentType` for POST/PUT/PATCH
-  - Optional CSRF/token validation for state-changing operations
+- **Prisma Client Singleton**: Generated in `src/lib/db.ts` to prevent open connection exhaustion in Serverless environments.
+- **Index Optimization**: Composite database indexes configured on high-volume columns such as `bookingId` inside `payments` and `booking_events` to accelerate analytical scans.
 
 ---
 
-## Email System
+## 🤝 Contributing Guidelines
 
-`src/lib/email.ts` provides helpers to send emails via SMTP and feature-specific templates:
-- Verification
-- Password reset
-- Booking approval/delivery status
-- Payment confirmation/issue for UPI
-
-Debug endpoint (`api/debug/email`) verifies SMTP envs and attempts a connection.
-
-Environment keys:
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
-- Optionally `EMAIL_SERVER_*` if using NextAuth email provider
-
----
-
-## Libraries and Utilities
-
-- `lib/db.ts` – Prisma client singleton
-- `lib/api-middleware.ts` – Middleware, response helpers, CORS/security headers
-- `lib/security.ts` – CSRF helpers, IP detection, rate limiting
-- `lib/validation.ts` / `lib/input-validation.ts` – zod schemas and helpers
-- `lib/utils.ts` – UI/status helpers and formatting
-- `lib/error-handler.ts` – Consistent API error handling and typed errors
-
----
-
-## Error Handling and Security
-
-- Central `handleAPIError` returns structured JSON with status codes.
-- Rate limiting and CSRF configurable per route via `withMiddleware` options.
-- Response headers (CSP, HSTS in prod, X-Frame-Options, etc.) added by `addSecurityHeaders`.
-
----
-
-## Testing and Quality
-
-- Linting: `npm run lint` (Next.js + ESLint + TypeScript rules)
-- Type-check: `npx tsc --noEmit`
-- Recommended: add CI steps to run both on every PR.
-
-Manual testing checklist (high-value):
-- Booking creation → stock reservation (optional) → event logs
-- UPI payment submit → admin review confirm/reject → emails
-- Delivery assignment → status progression → invoice PDF
-- Inventory batch adds/edits → stock adjustments → analytics
-- User profile load/edit, dashboard stats
-
----
-
-## Deployment Notes
-
-- Ensure `DATABASE_URL`, `NEXTAUTH_*`, SMTP, and `ADMIN_UPI_ID` are configured.
-- Run `prisma migrate deploy` on release initialization.
-- Serve over HTTPS (CSP/HSTS improvements activate in production mode).
-- Scale considerations:
-  - Add background queue for email dispatch in high volume scenarios.
-  - Offload PDF generation to a worker if needed.
-  - Use CDN for static assets.
-
----
-
-## Appendix – Frequently Used Admin Flows
-
-- Approve UPI bookings with successful payment only (guard rails in API ensure pending/failed UPI cannot be approved).
-- Assign delivery partner only for `APPROVED` bookings (and not already assigned).
-- Mark delivery statuses in sequence (`ASSIGNED` → `PICKED_UP` → `OUT_FOR_DELIVERY` → `DELIVERED`).
-- Cancelling bookings:
-  - Updates booking status to `CANCELLED`
-  - Cancels non-success payments
-  - Restores user quota
-  - Adds reason to booking notes
-
----
+Please consult our [Contributing Guide](CONTRIBUTING.md) and adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).

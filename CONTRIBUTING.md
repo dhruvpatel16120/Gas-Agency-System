@@ -1,102 +1,131 @@
 # 🛠️ Contributing Guide
 
-Welcome! 🎉 Thank you for your interest in contributing to **Gas Agency System**. Your help is highly appreciated, whether you're fixing bugs, adding features,fix the readme.md and other .md files , improving documentation, or suggesting ideas.
+Welcome! 🎉 Thank you for your interest in contributing to **Gas Agency System**. Your help is highly appreciated, whether you are fixing bugs, writing tests, improving documentation, or building features.
 
-This guide will walk you through the process of contributing like a pro. Please read it carefully to ensure a smooth and productive collaboration.
+Please read through this guide to ensure a smooth and productive workflow.
 
 ---
 
 ## 🚀 Quick Start
 
-1. **Fork the Repository**  
-   Click the "Fork" button at the top right of the [main repository](https://github.com/dhruvpatel16120/Gas-Agency-System).
+### 1. Fork the Repository
 
-2. **Clone Your Fork**
-   ```bash
-   git clone https://github.com/your-username/Gas-Agency-System.git
-   cd Gas-Agency-System
-   ```
+Click the **"Fork"** button at the top right of the [main repository page](https://github.com/dhruvpatel16120/Gas-Agency-System) on GitHub.
 
-3. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-4. **Set Up Environment Variables**  
-   Copy `.env.example` to `.env` and fill in the required values.
-   ```bash
-   cp .env.example .env
-   ```
-   ## or run the setup script 
-
-5. **Set Up the Database**
-   ```bash
-   npm run db:generate  # generate the Database Schema
-   npm run db:push      # Push schema to database
-   ```
-
-6. **Start the Development Server**
-   ```bash
-   npm run dev
-   ```
-   Visit [http://localhost:3000](http://localhost:3000) to see the app.
-
-7. **Setup & Management of Admin**
+### 2. Clone Your Fork
 
 ```bash
-npm run setup        # Interactive environment setup
-npm run admin:create # Create admin account
-npm run admin:delete # Delete admin account
-npm run admin:password # Change admin password
+git clone https://github.com/your-username/Gas-Agency-System.git
+cd Gas-Agency-System
 ```
----
 
-## 🧑‍💻 How to Contribute
+### 3. Install Project Dependencies
 
-### 1. Create a Feature Branch
+```bash
+npm install
+```
 
-Always create a new branch for your work:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-   Replace `your-feature-name` with a concise description of your change.
+### 4. Create Local Configuration
 
-### 2. Make Your Changes
+Ensure you have a PostgreSQL database ready (Local, Supabase, Neon, or Railway) as detailed in the [Technical Documentation](Documentation.md#-installation--setup-guide).
+Run our interactive CLI configuration tool:
 
-- Write clear, maintainable code.
-- Follow the existing code style and conventions.
-- Add or update tests if applicable.
-- Update documentation if your change affects usage or APIs.
+```bash
+npm run setup
+```
 
-### 3. Commit Your Changes
+### 5. Setup & Migrate Database
 
-Write a clear and descriptive commit message:
-   ```bash
-   git add .
-   git commit -m "feat: add <short description of your change>"
-   ```
+Apply migration files and seed sample inventory/admin schemas:
 
-### 4. Push to Your Fork
+```bash
+npm run setup:db
+```
 
-   ```bash
-   git push origin feature/your-feature-name
-   ```
+Inside the CLI menu:
 
-### 5. Open a Pull Request
+- Run **Option 1** to generate the Prisma Client.
+- Run **Option 2** or **Option 3** to push migrations.
+- Run **Option 5** to seed default variables.
 
-- Go to your fork on GitHub.
-- Click "Compare & pull request".
-- Fill out the PR template and describe your changes.
-- Link related issues if any.
+### 6. Create Admin Account
 
----
+```bash
+npm run admin
+```
 
-## 📝 Code Style & Best Practices
+Select **Create or Update Admin User** from the menu.
 
-- Use [Prettier](https://prettier.io/) for code formatting.
-- Use [ESLint](https://eslint.org/) to catch common issues.
-- Write descriptive variable and function names.
-- Keep functions small and focused.
-- Add comments where necessary, but prefer self-explanatory code.
+### 7. Run Local Development Server
+
+```bash
+npm run dev
+```
+
+Navigate to [http://localhost:3000](http://localhost:3000).
 
 ---
+
+## 🧑‍💻 How to Make Contributions
+
+### Step 1: Create a Feature Branch
+
+Always work on a dedicated branch rather than `main`:
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+Use concise, descriptive names like `feature/booking-sorting` or `bugfix/email-verification-timeout`.
+
+### Step 2: Write Clean Code
+
+- Adhere to the existing design style and folder conventions.
+- Format files before committing:
+  ```bash
+  npm run format
+  ```
+- Validate code quality by running standard checks:
+  ```bash
+  npm run lint
+  npx tsc --noEmit
+  ```
+
+### Step 3: Commit and Push
+
+Ensure you write meaningful commit messages:
+
+```bash
+git add .
+git commit -m "feat: implement booking filter criteria"
+git push origin feature/your-feature-name
+```
+
+### Step 4: Open a Pull Request (PR)
+
+1. Go to your fork on GitHub.
+2. Click **"Compare & pull request"**.
+3. Clearly summarize your changes, list any issue tickets fixed, and explain how you verified the changes.
+4. Submit the PR for review!
+
+---
+
+## 📝 Commit Code Styles
+
+We recommend following the [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+- `feat:` for new capabilities.
+- `fix:` for bug resolutions.
+- `docs:` for documentation updates.
+- `style:` for code styling (spacing, semicolons).
+- `refactor:` for architectural reorganizations.
+- `test:` for writing tests.
+
+---
+
+## 📞 Support and Questions
+
+If you have questions or need help with code integration, please:
+
+- Open a GitHub issue.
+- Email me directly at **digitaldhruv21@gmail.com**.
