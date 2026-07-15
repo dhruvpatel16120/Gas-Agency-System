@@ -1,6 +1,5 @@
 # 🚀 Gas Agency System
 
-
 <p align="center">
   <img src="preview/logo.png" alt="Gas Agency System Logo" width="180" />
 </p>
@@ -13,6 +12,7 @@
 </p>
 
 **Key Features:**
+
 - User and Admin roles with secure authentication
 - Cylinder booking with real-time status tracking
 - UPI and Cash on Delivery payment options
@@ -21,8 +21,6 @@
 - Quota management (12 cylinders/year per user)
 - Modern UI with responsive design
 - Built-in API endpoints for extensibility
-
-
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-brightgreen?style=for-the-badge&logo=vercel)](https://gas-agency-system-phi.vercel.app)
 [![Vercel](https://img.shields.io/badge/Hosted%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
@@ -64,6 +62,7 @@
 [![Live Demo](https://img.shields.io/badge/Open-Live%20Demo-22c55e?style=for-the-badge&logo=vercel&logoColor=white)](https://gas-agency-system-phi.vercel.app)
 
 Quick links:
+
 - User Dashboard: `https://gas-agency-system-phi.vercel.app/user`
 - Admin Dashboard: `https://gas-agency-system-phi.vercel.app/admin`
 - Login: `https://gas-agency-system-phi.vercel.app/login`
@@ -200,7 +199,6 @@ npm run db:generate
 
 # Run database migrations
 npm run db:migrate
-
 ```
 
 ### 5. Create Admin Account
@@ -281,7 +279,6 @@ ADMIN_SECRET_KEY="your-admin-secret-key"
 
 # Development Configuration
 NODE_ENV="development"
-
 
 # upi id for payment gatway
 ADMIN_UPI_ID="upi-id@opensource"
@@ -631,6 +628,7 @@ SOFTWARE.
 ### 👨‍💻 Developer
 
 **Dhruv Patel**
+
 - **GitHub**: [@dhruvpatel16120](https://github.com/dhruvpatel16120)
 - **LinkedIn**: [dhruvpatel16120](https://www.linkedin.com/in/dhruvpatel16120/)
 - **Portfolio**: [dhruvpatelofficial.vercel.app](https://dhruvpatelofficial.vercel.app/)
@@ -654,9 +652,3 @@ SOFTWARE.
 ---
 
 <div align="center">
-
-**Made with ❤️ using Next.js, Prisma, and Tailwind CSS**
-
-### If you find this project helpful, please give it a ⭐ star on GitHub!
-
-</div>
