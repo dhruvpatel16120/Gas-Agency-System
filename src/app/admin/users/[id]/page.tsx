@@ -79,23 +79,46 @@ export default function AdminUserDetailPage() {
     if (userId) fetchData();
   }, [userId, fetchData]);
 
+  const isOtherAdmin = user?.role === "ADMIN" && session?.user?.email !== user?.email;
+
   const onSave = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isOtherAdmin) {
+      alert("You cannot modify other administrator accounts.");
+      return;
+    }
+
     const form = e.currentTarget as HTMLFormElement;
     const formData = new FormData(form);
-    const payload: {
-      name: string;
-      phone: string;
-      address: string;
-      role: string;
-      remainingQuota: number;
-    } = {
+    const payload = {
       name: String(formData.get("name") || ""),
       phone: String(formData.get("phone") || ""),
       address: String(formData.get("address") || ""),
       role: String(formData.get("role") || ""),
       remainingQuota: Number(formData.get("remainingQuota") || 0),
     };
+
+    // Validation constraints
+    if (payload.phone.length < 10 || payload.phone.length > 13) {
+      alert("Phone number length must be between 10 and 13 characters.");
+      return;
+    }
+
+    if (payload.address.length <= 10) {
+      alert("Address length must be greater than 10 characters.");
+      return;
+    }
+
+    if (payload.remainingQuota > 12) {
+      alert("Remaining Quota must be less than or equal to 12.");
+      return;
+    }
+
+    // Confirmation for save
+    if (!confirm("Are you sure you want to save these changes?")) {
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -106,7 +129,7 @@ export default function AdminUserDetailPage() {
       const json = await res.json();
       if (json.success) {
         await fetchData();
-        alert("Saved");
+        alert("Saved successfully");
       } else {
         alert(json.message || "Failed to save");
       }
@@ -116,6 +139,11 @@ export default function AdminUserDetailPage() {
   };
 
   const onDelete = async () => {
+    if (isOtherAdmin) {
+      alert("You cannot delete other administrator accounts.");
+      return;
+    }
+
     if (
       !confirm("Delete user and all related bookings? This cannot be undone.")
     )
@@ -177,6 +205,11 @@ export default function AdminUserDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {isOtherAdmin && (
+                      <div className="mb-4 p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm flex items-center gap-2">
+                        <span>⚠️ You cannot modify or delete details of another administrator.</span>
+                      </div>
+                    )}
                     <form onSubmit={onSave} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -186,8 +219,9 @@ export default function AdminUserDetailPage() {
                           <input
                             name="name"
                             defaultValue={user.name}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
                             required
+                            disabled={isOtherAdmin}
                           />
                         </div>
                         <div>
@@ -217,8 +251,9 @@ export default function AdminUserDetailPage() {
                           <input
                             name="phone"
                             defaultValue={user.phone}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
                             required
+                            disabled={isOtherAdmin}
                           />
                         </div>
                         <div className="md:col-span-2">
@@ -229,8 +264,9 @@ export default function AdminUserDetailPage() {
                             name="address"
                             defaultValue={user.address}
                             rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
                             required
+                            disabled={isOtherAdmin}
                           />
                         </div>
                         <div>
@@ -240,7 +276,8 @@ export default function AdminUserDetailPage() {
                           <select
                             name="role"
                             defaultValue={user.role}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            disabled={isOtherAdmin}
                           >
                             <option value="USER">User</option>
                             <option value="ADMIN">Admin</option>
@@ -254,8 +291,10 @@ export default function AdminUserDetailPage() {
                             name="remainingQuota"
                             type="number"
                             min={0}
+                            max={12}
                             defaultValue={user.remainingQuota}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            disabled={isOtherAdmin}
                           />
                         </div>
                         <div>
@@ -270,21 +309,25 @@ export default function AdminUserDetailPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3 pt-4">
-                        <button
-                          disabled={saving}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-                        >
-                          <Save className="w-4 h-4" />
-                          {saving ? "Saving..." : "Save Changes"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onDelete}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete User
-                        </button>
+                        {!isOtherAdmin && (
+                          <button
+                            disabled={saving}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                          >
+                            <Save className="w-4 h-4" />
+                            {saving ? "Saving..." : "Save Changes"}
+                          </button>
+                        )}
+                        {!isOtherAdmin && (
+                          <button
+                            type="button"
+                            onClick={onDelete}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete User
+                          </button>
+                        )}
                       </div>
                     </form>
                   </CardContent>
@@ -396,8 +439,8 @@ export default function AdminUserDetailPage() {
                   <CardContent>
                     <div className="space-y-3">
                       <button
-                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                        disabled={sending !== "none"}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={sending !== "none" || !!user.emailVerified}
                         onClick={async () => {
                           setSending("verify");
                           try {

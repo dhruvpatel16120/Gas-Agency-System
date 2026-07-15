@@ -10,7 +10,8 @@ import { ConflictError } from "@/lib/error-handler";
 import { sanitizeInput } from "@/lib/security";
 import { Prisma } from "@prisma/client";
 import crypto from "crypto";
-import { sendEmailVerification, sendPasswordResetEmail } from "@/lib/email";
+import { sendAdminInvitationEmail } from "@/lib/email";
+import { hashPassword } from "@/lib/utils";
 
 const listQuerySchema = {
   parse: (query: Record<string, string>) => {
@@ -96,8 +97,50 @@ async function listUsersHandler(request: NextRequest) {
   );
 }
 
-async function createUserHandler(request: NextRequest) {
-  const body = await parseRequestBody(request);
+function generateSecurePassword(): string {
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lowercase = "abcdefghijklmnopqrstuvwxyz";
+  const numbers = "0123456789";
+  const symbols = "!@#$%^&*()_+";
+  
+  const getChar = (str: string) => str[Math.floor(Math.random() * str.length)];
+  
+  const chars = [
+    getChar(uppercase),
+    getChar(lowercase),
+    getChar(numbers),
+    getChar(symbols),
+    getChar(uppercase),
+    getChar(lowercase),
+    getChar(numbers),
+    getChar(symbols),
+    getChar(lowercase),
+    getChar(numbers),
+  ];
+  
+  return chars.sort(() => Math.random() - 0.5).join("");
+}
+
+async function createUserHandler(
+  request: NextRequest,
+  context?: Record<string, unknown>,
+) {
+  const body = await parseRequestBody<Record<string, unknown>>(request);
+
+  if (body.phone !== undefined) {
+    const rawPhone = String(body.phone).trim();
+    if (rawPhone.length < 10 || rawPhone.length > 13) {
+      throw new ConflictError("Phone number length must be between 10 and 13 characters.");
+    }
+  }
+
+  if (body.address !== undefined) {
+    const rawAddress = String(body.address).trim();
+    if (rawAddress.length <= 10) {
+      throw new ConflictError("Address length must be greater than 10 characters.");
+    }
+  }
+
   const { name, userId, email, phone, address, role } =
     adminCreateUserSchema.parse(body);
 
@@ -129,7 +172,11 @@ async function createUserHandler(request: NextRequest) {
   const resetToken = crypto.randomBytes(32).toString("hex");
   const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
-  // Create user without a password (they will set it via reset link)
+  // Generate system password and hash it
+  const generatedPassword = generateSecurePassword();
+  const hashedPassword = await hashPassword(generatedPassword);
+
+  // Create user with the hashed password
   const user = await prisma.$transaction(
     async (tx: Prisma.TransactionClient) => {
       return tx.user.create({
@@ -140,6 +187,7 @@ async function createUserHandler(request: NextRequest) {
           phone, // already normalized by validation
           address: sanitizeInput(address),
           role,
+          password: hashedPassword,
           remainingQuota: 12,
           emailVerificationToken,
           emailVerificationExpiry,
@@ -161,15 +209,27 @@ async function createUserHandler(request: NextRequest) {
     },
   );
 
-  // Send onboarding emails (fire-and-forget)
+  // Get inviter details from session
+  const session = context?.session as any;
+  const adminName = session?.user?.name || "Admin";
+  const adminEmail = session?.user?.email || "";
+
+  // Send onboarding email (fire-and-forget)
   Promise.allSettled([
-    sendEmailVerification(email, name, emailVerificationToken),
-    sendPasswordResetEmail(email, name, resetToken),
-  ]).catch((e) => console.error("Failed to send onboarding emails", e));
+    sendAdminInvitationEmail({
+      toEmail: email,
+      userName: name,
+      generatedPassword,
+      role,
+      adminName,
+      adminEmail,
+      emailVerificationToken,
+    }),
+  ]).catch((e) => console.error("Failed to send onboarding email", e));
 
   return successResponse(
     user,
-    "User created. Verification and password setup emails sent.",
+    "User created and invitation email with system-generated password sent successfully.",
     201,
   );
 }

@@ -24,14 +24,7 @@ export default function AdminCreateUserPage() {
     e.preventDefault();
     const form = e.currentTarget as HTMLFormElement;
     const formData = new FormData(form);
-    const payload: {
-      name: string;
-      userId: string;
-      email: string;
-      phone: string;
-      address: string;
-      role: string;
-    } = {
+    const payload = {
       name: String(formData.get("name") || ""),
       userId: String(formData.get("userId") || ""),
       email: String(formData.get("email") || ""),
@@ -39,6 +32,20 @@ export default function AdminCreateUserPage() {
       address: String(formData.get("address") || ""),
       role: String(formData.get("role") || "USER"),
     };
+
+    // Validation constraints
+    if (payload.phone.length < 10 || payload.phone.length > 13) {
+      setErrorMsg("Phone number length must be between 10 and 13 characters.");
+      toast.error("Phone number length must be between 10 and 13 characters.");
+      return;
+    }
+
+    if (payload.address.length <= 10) {
+      setErrorMsg("Address length must be greater than 10 characters.");
+      toast.error("Address length must be greater than 10 characters.");
+      return;
+    }
+
     setCreating(true);
     setErrorMsg(null);
     try {

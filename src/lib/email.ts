@@ -184,11 +184,11 @@ export async function sendPaymentReminder(
   const subject = `Payment Reminder - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #dc2626;">Payment Reminder</h2>
+      <h2 style="color: #2563eb;">Payment Reminder</h2>
       <p>Dear ${userName},</p>
       <p>Your gas cylinder booking is pending payment completion.</p>
       
-      <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Payment Details:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         <p><strong>Amount Due:</strong> ₹${amount}</p>
@@ -215,11 +215,11 @@ export async function sendCancellationEmail(
   const subject = `Booking Cancellation - ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #dc2626;">Booking Cancellation</h2>
+      <h2 style="color: #2563eb;">Booking Cancellation</h2>
       <p>Dear ${userName},</p>
       <p>Your gas cylinder booking has been cancelled.</p>
       
-      <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Cancellation Details:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         <p><strong>Cancellation Reason:</strong> ${reason}</p>
@@ -248,7 +248,7 @@ export async function sendDeliveryStatusEmail(
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #065f46;">Delivery Status Update</h2>
+      <h2 style="color: #2563eb;">Delivery Status Update</h2>
       <p>Dear ${userName},</p>
       <p>Your gas cylinder delivery status has been updated.</p>
       
@@ -297,10 +297,10 @@ export async function sendPaymentConfirmedEmail(
   const subject = `Payment Confirmed - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #065f46;">Payment Confirmed</h2>
+      <h2 style="color: #2563eb;">Payment Confirmed</h2>
       <p>Dear ${userName},</p>
       <p>Your payment has been verified and confirmed.</p>
-      <div style="background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #d1fae5;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Payment Details:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         <p><strong>Amount:</strong> ₹${amount}</p>
@@ -324,10 +324,10 @@ export async function sendPaymentIssueEmail(
   const subject = `Payment Issue - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #b45309;">Payment Could Not Be Verified</h2>
+      <h2 style="color: #2563eb;">Payment Could Not Be Verified</h2>
       <p>Dear ${userName},</p>
       <p>We could not verify your payment for the booking below.</p>
-      <div style="background: #fffbeb; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #fde68a;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Details:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         ${referenceId ? `<p><strong>Reference/UPI ID:</strong> ${referenceId}</p>` : ""}
@@ -347,7 +347,7 @@ export const emailTemplates = {
     subject: "Welcome to Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Welcome to Gas Agency System!</h2>
+        <h2 style="color: #2563eb;">Welcome to Gas Agency System!</h2>
         <p>Hello ${userName},</p>
         <p>Thank you for registering with our Gas Agency System. Your account has been successfully created.</p>
         <p>You can now:</p>
@@ -382,10 +382,10 @@ export const emailTemplates = {
     subject: "Booking Confirmation - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Booking Confirmation</h2>
+        <h2 style="color: #2563eb;">Booking Confirmation</h2>
         <p>Hello ${userName},</p>
         <p>Your gas cylinder booking has been submitted successfully. Below are your booking details:</p>
-        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 16px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 16px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${details.id}</p>
           <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
           <p><strong>Quantity:</strong> ${details.quantity}</p>
@@ -394,7 +394,7 @@ export const emailTemplates = {
           <p><strong>Expected Delivery:</strong> ${details.expectedDate ? details.expectedDate.toLocaleDateString() : "Not specified"}</p>
           ${details.notes ? `<p><strong>Notes:</strong> ${details.notes}</p>` : ""}
         </div>
-        <div style="background-color: #eef7ff; padding: 15px; border-radius: 8px; margin: 16px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 16px 0; border: 1px solid #bfdbfe;">
           <p style="margin:0 0 8px 0;"><strong>Profile on File</strong></p>
           <p style="margin:2px 0;">Email: ${details.userEmail}</p>
           <p style="margin:2px 0;">Phone: ${details.userPhone}</p>
@@ -416,10 +416,10 @@ export const emailTemplates = {
     subject: "Booking Approved - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Booking Approved!</h2>
+        <h2 style="color: #2563eb;">Booking Approved!</h2>
         <p>Hello ${userName},</p>
         <p>Great news! Your gas cylinder booking has been approved.</p>
-        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Delivery Date:</strong> ${deliveryDate}</p>
           <p><strong>Status:</strong> Approved</p>
@@ -441,10 +441,10 @@ export const emailTemplates = {
     subject: "COD Booking Approved - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">COD Booking Approved!</h2>
+        <h2 style="color: #2563eb;">COD Booking Approved!</h2>
         <p>Hello ${userName},</p>
         <p>Great news! Your Cash on Delivery (COD) gas cylinder booking has been approved.</p>
-        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Delivery Date:</strong> ${deliveryDate}</p>
           <p><strong>Payment Method:</strong> Cash on Delivery (COD)</p>
@@ -471,10 +471,10 @@ export const emailTemplates = {
     subject: "Cylinder Delivered - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Cylinder Delivered</h2>
+        <h2 style="color: #2563eb;">Cylinder Delivered</h2>
         <p>Hello ${userName},</p>
         <p>Your gas cylinder has been successfully delivered!</p>
-        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Status:</strong> Delivered</p>
           <p><strong>Delivery Date:</strong> ${new Date().toLocaleDateString()}</p>
@@ -494,7 +494,7 @@ export const emailTemplates = {
     subject: "Out for Delivery - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Your Cylinder Is Out for Delivery</h2>
+        <h2 style="color: #2563eb;">Your Cylinder Is Out for Delivery</h2>
         <p>Hello ${userName},</p>
         <p>Your gas cylinder is on its way.</p>
         <div style="background-color: #eef7ff; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -518,10 +518,10 @@ export const emailTemplates = {
     subject: "Booking Cancelled - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #b91c1c;">Booking Cancelled</h2>
+        <h2 style="color: #2563eb;">Booking Cancelled</h2>
         <p>Hello ${userName},</p>
         <p>Your booking has been cancelled by <strong>${cancelledBy}</strong>.</p>
-        <div style="background-color: #fef2f2; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Status:</strong> Cancelled</p>
         </div>
@@ -542,10 +542,10 @@ export const emailTemplates = {
     subject: "Booking Cancelled by Admin - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #b91c1c;">Booking Cancelled by Admin</h2>
+        <h2 style="color: #2563eb;">Booking Cancelled by Admin</h2>
         <p>Hello ${userName},</p>
         <p>Your booking has been cancelled by an administrator.</p>
-        <div style="background-color: #fef2f2; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Status:</strong> Cancelled</p>
           ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ""}
@@ -577,10 +577,10 @@ export const emailTemplates = {
     subject: "Booking Cancelled - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #b91c1c;">Booking Cancelled</h2>
+        <h2 style="color: #2563eb;">Booking Cancelled</h2>
         <p>Hello ${userName},</p>
         <p>Your booking has been cancelled successfully.</p>
-        <div style="background-color: #fef2f2; padding: 15px; border-radius: 5px; margin: 20px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Status:</strong> Cancelled</p>
           ${reason ? `<p><strong>Cancellation Reason:</strong> ${reason}</p>` : ""}
@@ -606,11 +606,11 @@ export const emailTemplates = {
     subject: "Password Reset Request - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Password Reset Request</h2>
+        <h2 style="color: #2563eb;">Password Reset Request</h2>
         <p>Hello ${userName},</p>
         <p>We received a request to reset your password. Click the button below to create a new password:</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" style="background-color: #006d3b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
+          <a href="${resetLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
         </div>
         <p>If you didn't request this password reset, please ignore this email.</p>
         <p>This link will expire in 1 hour.</p>
@@ -627,11 +627,11 @@ export const emailTemplates = {
     subject: "Email Verification - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Verify Your Email Address</h2>
+        <h2 style="color: #2563eb;">Verify Your Email Address</h2>
         <p>Hello ${userName},</p>
         <p>Thank you for registering with Gas Agency System! Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${verificationLink}" style="background-color: #006d3b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email</a>
+          <a href="${verificationLink}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email</a>
         </div>
         <p>This verification link will expire in 24 hours.</p>
         <p>If you didn't create an account, please ignore this email.</p>
@@ -658,10 +658,10 @@ export const emailTemplates = {
     subject: "Booking Request Received - Gas Agency System",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Booking Request Received</h2>
+        <h2 style="color: #2563eb;">Booking Request Received</h2>
         <p>Hello ${userName},</p>
         <p>We have received your booking request. Our team will review it and notify you once it is approved.</p>
-        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 16px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 16px 0; border: 1px solid #bfdbfe;">
           <p><strong>Booking ID:</strong> ${details.id}</p>
           <p><strong>Payment Method:</strong> ${details.paymentMethod}</p>
           <p><strong>Quantity:</strong> ${details.quantity}</p>
@@ -670,7 +670,7 @@ export const emailTemplates = {
           <p><strong>Expected Delivery (requested):</strong> ${details.expectedDate ? details.expectedDate.toLocaleDateString() : "Not specified"}</p>
           ${details.notes ? `<p><strong>Notes:</strong> ${details.notes}</p>` : ""}
         </div>
-        <div style="background-color: #eef7ff; padding: 15px; border-radius: 8px; margin: 16px 0;">
+        <div style="background-color: #eff6ff; padding: 15px; border-radius: 8px; margin: 16px 0; border: 1px solid #bfdbfe;">
           <p style="margin:0 0 8px 0;"><strong>Profile on File</strong></p>
           ${details.userEmail ? `<p style="margin:2px 0;">Email: ${details.userEmail}</p>` : ""}
           ${details.userPhone ? `<p style="margin:2px 0;">Phone: ${details.userPhone}</p>` : ""}
@@ -689,7 +689,7 @@ export const emailTemplates = {
     subject: "We received your message - Gas Agency Support",
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 640px; margin: 0 auto;">
-        <h2 style="color: #006d3b;">Thanks for contacting us</h2>
+        <h2 style="color: #2563eb;">Thanks for contacting us</h2>
         <p>Hello ${userName},</p>
         <p>We've received your message regarding <strong>${details.subject}</strong>. Our support team will get back to you as soon as possible.</p>
         <p>If this is urgent, you can reply directly to this email.</p>
@@ -712,17 +712,17 @@ export const emailTemplates = {
     subject: `[Contact] ${payload.subject} - ${payload.fromName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 720px; margin: 0 auto;">
-        <h2 style="color: #111827;">New Contact Form Submission</h2>
+        <h2 style="color: #7c3aed;">New Contact Form Submission</h2>
         <p><strong>From:</strong> ${payload.fromName} &lt;${payload.fromEmail}&gt;</p>
         ${payload.phone ? `<p><strong>Phone:</strong> ${payload.phone}</p>` : ""}
-        <div style="background:#f3f4f6; padding:12px; border-radius:8px; margin:16px 0;">
+        <div style="background:#faf5ff; padding:12px; border-radius:8px; margin:16px 0; border: 1px solid #e9d5ff;">
           <p style="margin:4px 0;"><strong>Subject:</strong> ${payload.subject}</p>
           ${payload.category ? `<p style="margin:4px 0;"><strong>Category:</strong> ${payload.category}</p>` : ""}
           ${payload.priority ? `<p style="margin:4px 0;"><strong>Priority:</strong> ${payload.priority}</p>` : ""}
           ${payload.preferredContact ? `<p style="margin:4px 0;"><strong>Preferred Contact:</strong> ${payload.preferredContact}</p>` : ""}
           ${payload.relatedBookingId ? `<p style="margin:4px 0;"><strong>Related Booking:</strong> ${payload.relatedBookingId}</p>` : ""}
         </div>
-        <div style="background:#ffffff; border:1px solid #e5e7eb; padding:12px; border-radius:8px;">
+        <div style="background:#ffffff; border:1px solid #d8b4fe; padding:12px; border-radius:8px;">
           <p style="margin:0 0 6px 0;"><strong>Message</strong></p>
           <pre style="white-space:pre-wrap; font-family:inherit; line-height:1.5;">${payload.message}</pre>
         </div>
@@ -730,6 +730,55 @@ export const emailTemplates = {
     `,
     text: `New Contact Submission\nFrom: ${payload.fromName} <${payload.fromEmail}>${payload.phone ? `\nPhone: ${payload.phone}` : ""}\nSubject: ${payload.subject}\n${payload.category ? `Category: ${payload.category}\n` : ""}${payload.priority ? `Priority: ${payload.priority}\n` : ""}${payload.preferredContact ? `Preferred Contact: ${payload.preferredContact}\n` : ""}${payload.relatedBookingId ? `Related Booking: ${payload.relatedBookingId}\n` : ""}\n\nMessage:\n${payload.message}`,
   }),
+  adminInvitation: (params: {
+    userName: string;
+    userEmail: string;
+    generatedPassword: string;
+    role: "USER" | "ADMIN";
+    adminName: string;
+    adminEmail: string;
+    loginLink: string;
+    verificationLink: string;
+  }): EmailTemplate => {
+    const isUser = params.role === "USER";
+    const actionUrl = isUser ? params.verificationLink : params.loginLink;
+    const buttonText = isUser ? "Verify Email & Log In" : "Log In to Admin Portal";
+
+    return {
+      subject: "Invitation to Join Gas Agency System",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #bfdbfe; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+          <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; padding: 24px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Gas Agency System</h1>
+            <p style="margin: 8px 0 0 0; opacity: 0.9; color: white;">System Access Invitation</p>
+          </div>
+          <div style="background: #ffffff; padding: 24px; color: #1f2937; line-height: 1.6;">
+            <p>Hello <strong>${params.userName}</strong>,</p>
+            <p>You have been invited by admin <strong>${params.adminName}</strong> (${params.adminEmail}) to access the Gas Agency System as an <strong>${params.role}</strong>.</p>
+            
+            <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1e40af; border-bottom: 1px solid #bfdbfe; padding-bottom: 8px;">Your Credentials</h3>
+              <p style="margin: 8px 0;"><strong>Email:</strong> ${params.userEmail}</p>
+              <p style="margin: 8px 0;"><strong>Temporary Password:</strong> <code style="background: #ffffff; padding: 4px 8px; border: 1px dashed #bfdbfe; border-radius: 4px; font-size: 14px; font-family: monospace; font-weight: bold; color: #2563eb;">${params.generatedPassword}</code></p>
+              <p style="margin: 8px 0;"><strong>Role:</strong> ${params.role}</p>
+            </div>
+            
+            <p>For your security, we suggest copying this temporary password and logging into the system using the link below to configure your profile.</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${actionUrl}" style="background-color: #2563eb; color: white; padding: 12px 28px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 15px;">${buttonText}</a>
+            </div>
+            
+            <p style="color: #6b7280; font-size: 13px;">If you have any questions, feel free to contact the administrator who invited you.</p>
+            
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+            <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">Best regards,<br>Gas Agency Team</p>
+          </div>
+        </div>
+      `,
+      text: `Invitation to Join Gas Agency System. Hello ${params.userName}, You have been invited by admin ${params.adminName} (${params.adminEmail}) to join as an ${params.role}. Email: ${params.userEmail}, Temporary Password: ${params.generatedPassword}, Role: ${params.role}. Action Link: ${actionUrl}`,
+    };
+  },
 };
 
 // Send welcome email
@@ -993,11 +1042,11 @@ export const sendDeliveryAssignedEmail = async (
   const subject = `Delivery Partner Assigned - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #065f46;">Delivery Partner Assigned</h2>
+      <h2 style="color: #2563eb;">Delivery Partner Assigned</h2>
       <p>Dear ${userName},</p>
       <p>Great news! A delivery partner has been assigned to your gas cylinder booking.</p>
       
-      <div style="background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #d1fae5;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Delivery Details:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         <p><strong>Delivery Partner:</strong> ${partner.name}</p>
@@ -1023,11 +1072,11 @@ export const sendDeliveryCompletedEmail = async (
   const subject = `Delivery Completed - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #065f46;">Delivery Completed Successfully</h2>
+      <h2 style="color: #2563eb;">Delivery Completed Successfully</h2>
       <p>Dear ${userName},</p>
       <p>Your gas cylinder has been delivered successfully!</p>
       
-      <div style="background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #d1fae5;">
+      <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #bfdbfe;">
         <h3>Delivery Confirmation:</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
         <p><strong>Delivered At:</strong> ${deliveredAt}</p>
@@ -1129,7 +1178,7 @@ export const sendInvoiceEmail = async (
   const subject = `Invoice for Your Gas Cylinder Delivery - Booking ${bookingId}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+      <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
         <h1 style="margin: 0; font-size: 28px;">Gas Agency System</h1>
         <p style="margin: 10px 0 0 0; opacity: 0.9;">Professional Gas Cylinder Service</p>
       </div>
@@ -1139,7 +1188,7 @@ export const sendInvoiceEmail = async (
         <p>Dear ${userName},</p>
         <p>Thank you for choosing Gas Agency System for your gas cylinder needs. Your delivery has been completed successfully!</p>
         
-        <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+        <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6;">
           <h3 style="color: #374151; margin-bottom: 15px;">Delivery Summary</h3>
           <p><strong>Booking ID:</strong> ${bookingId}</p>
           <p><strong>Status:</strong> <span style="color: #065f46; font-weight: bold;">DELIVERED</span></p>
@@ -1161,8 +1210,8 @@ export const sendInvoiceEmail = async (
           <li>Company information and GST details</li>
         </ul>
         
-        <div style="background: #fef7ff; border: 1px solid #e879f9; border-radius: 8px; padding: 20px; margin: 20px 0;">
-          <h4 style="color: #a21caf; margin-bottom: 10px;">📄 Invoice Attached</h4>
+        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h4 style="color: #1e40af; margin-bottom: 10px;">📄 Invoice Attached</h4>
           <p style="color: #6b7280; margin: 0;">The PDF invoice is attached to this email for your records. Please save it for future reference.</p>
         </div>
         
@@ -1193,5 +1242,36 @@ export const sendInvoiceEmail = async (
     filename: `invoice-${bookingId}.pdf`,
     content: pdfBuffer,
     contentType: "application/pdf",
+  });
+};
+
+export const sendAdminInvitationEmail = async (params: {
+  toEmail: string;
+  userName: string;
+  generatedPassword: string;
+  role: "USER" | "ADMIN";
+  adminName: string;
+  adminEmail: string;
+  emailVerificationToken: string;
+}): Promise<boolean> => {
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const loginLink = `${baseUrl}${params.role === "ADMIN" ? "/admin/login" : "/login"}`;
+  const verificationLink = `${baseUrl}/verify-email?token=${params.emailVerificationToken}&email=${encodeURIComponent(params.toEmail)}`;
+
+  const template = emailTemplates.adminInvitation({
+    userName: params.userName,
+    userEmail: params.toEmail,
+    generatedPassword: params.generatedPassword,
+    role: params.role,
+    adminName: params.adminName,
+    adminEmail: params.adminEmail,
+    loginLink,
+    verificationLink,
+  });
+  return sendEmail({
+    to: params.toEmail,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
   });
 };

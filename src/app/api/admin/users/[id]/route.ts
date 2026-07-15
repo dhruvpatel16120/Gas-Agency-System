@@ -85,7 +85,44 @@ async function updateUserHandler(
     : { id: undefined };
   if (!id) throw new NotFoundError("User ID is required");
 
+  const existing = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, role: true, email: true },
+  });
+  if (!existing) throw new NotFoundError("User not found");
+
+  const session = context?.session as any;
+  const currentAdminEmail = session?.user?.email;
+
+  // 1. Admin cannot change information of other admins
+  if (existing.role === "ADMIN" && existing.email !== currentAdminEmail) {
+    throw new ConflictError("You cannot modify other administrator accounts.");
+  }
+
   const body = await parseRequestBody<Record<string, unknown>>(request);
+
+  // Validation constraints
+  if (body.remainingQuota !== undefined) {
+    const quota = Number(body.remainingQuota);
+    if (isNaN(quota) || quota > 12 || quota < 0) {
+      throw new ConflictError("Quota must be less than or equal to 12.");
+    }
+  }
+
+  if (body.phone !== undefined) {
+    const phone = String(body.phone).trim();
+    if (phone.length < 10 || phone.length > 13) {
+      throw new ConflictError("Phone number length must be between 10 and 13 characters.");
+    }
+  }
+
+  if (body.address !== undefined) {
+    const address = String(body.address).trim();
+    if (address.length <= 10) {
+      throw new ConflictError("Address length must be greater than 10 characters.");
+    }
+  }
+
   const allowedFields = [
     "name",
     "phone",
@@ -106,12 +143,6 @@ async function updateUserHandler(
   ) {
     throw new ConflictError("Email and User ID cannot be changed once set");
   }
-
-  const existing = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true },
-  });
-  if (!existing) throw new NotFoundError("User not found");
 
   const updated = await prisma.user.update({
     where: { id },
@@ -150,9 +181,17 @@ async function deleteUserHandler(
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true },
+    select: { id: true, role: true, email: true },
   });
   if (!user) throw new NotFoundError("User not found");
+
+  const session = context?.session as any;
+  const currentAdminEmail = session?.user?.email;
+
+  // 1. Admin cannot delete other admins
+  if (user.role === "ADMIN" && user.email !== currentAdminEmail) {
+    throw new ConflictError("You cannot delete other administrator accounts.");
+  }
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.booking.deleteMany({ where: { userId: id } });

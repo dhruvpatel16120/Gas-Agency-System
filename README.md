@@ -29,6 +29,7 @@
 Our Gas Agency System is built with cutting-edge technologies to ensure performance, security, and scalability:
 
 ### **Frontend Technologies**
+
 - **Next.js 15.4.7** - React framework with App Router
 - **TypeScript 5.0** - Type-safe JavaScript
 - **Tailwind CSS 4.0** - Utility-first CSS framework
@@ -38,6 +39,7 @@ Our Gas Agency System is built with cutting-edge technologies to ensure performa
 - **Lucide React** - Beautiful icons
 
 ### **Backend & Database**
+
 - **Next.js API Routes** - Server-side API endpoints
 - **Prisma 6.14.0** - Database ORM
 - **PostgreSQL** - Multi-environment cloud or local database support
@@ -46,6 +48,7 @@ Our Gas Agency System is built with cutting-edge technologies to ensure performa
 - **Puppeteer** - PDF invoice generation
 
 ### **Development Tools**
+
 - **ESLint** - Code linting
 - **Prettier** - Code formatting
 - **Husky** - Git hooks
@@ -56,12 +59,14 @@ Our Gas Agency System is built with cutting-edge technologies to ensure performa
 ## ✨ Features
 
 ### 🔐 **Authentication & Security**
+
 - **Multi-role Authentication**: User and Admin roles with secure session management.
 - **Email Verification**: Account verification with email confirmation.
 - **Password Reset**: Secure password reset with email tokens.
 - **Session Security**: NextAuth.js with secure session handling.
 
 ### 📱 **User Dashboard**
+
 - **Quota Management**: Track remaining cylinder quota (12 per year).
 - **Booking System**: Easy cylinder booking with multiple payment options.
 - **Booking History**: Complete booking history with status tracking.
@@ -70,6 +75,7 @@ Our Gas Agency System is built with cutting-edge technologies to ensure performa
 - **Profile Management**: Update personal information and preferences.
 
 ### 🏢 **Admin Dashboard**
+
 - **Comprehensive Analytics**: Revenue, bookings, deliveries, and user statistics.
 - **User Management**: View, edit, and manage user accounts.
 - **Booking Management**: Approve, reject, and track all bookings.
@@ -85,16 +91,16 @@ Our Gas Agency System is built with cutting-edge technologies to ensure performa
 
 Here's a preview of the key features and interfaces in the Gas Agency System:
 
-| Feature | Preview |
-|:--------:|:-------:|
-| **User Dashboard** | ![User Dashboard](preview/user_dashboard.png) |
-| **Booking Form** | ![Booking Form](preview/booking.png) |
-| **Payment Interface** | ![Payment Interface](preview/payment.png) |
-| **Tracking Page** | ![Tracking Page](preview/track.png) |
-| **Admin Dashboard** | ![Admin Dashboard](preview/admin_dashboard.png) |
-| **Booking Management** | ![Booking Management](preview/admin_booking.png) |
-| **Inventory Management** | ![Inventory Management](preview/inventory.png) |
-| **User Management** | ![User Management](preview/users.png) |
+|         Feature          |                     Preview                      |
+| :----------------------: | :----------------------------------------------: |
+|    **User Dashboard**    |  ![User Dashboard](preview/user_dashboard.png)   |
+|     **Booking Form**     |       ![Booking Form](preview/booking.png)       |
+|  **Payment Interface**   |    ![Payment Interface](preview/payment.png)     |
+|    **Tracking Page**     |       ![Tracking Page](preview/track.png)        |
+|   **Admin Dashboard**    | ![Admin Dashboard](preview/admin_dashboard.png)  |
+|  **Booking Management**  | ![Booking Management](preview/admin_booking.png) |
+| **Inventory Management** |  ![Inventory Management](preview/inventory.png)  |
+|   **User Management**    |      ![User Management](preview/users.png)       |
 
 ---
 
@@ -117,6 +123,7 @@ Before setting up the Gas Agency System, ensure you have the following:
 ## 🚀 Quick Start
 
 ### 1. Clone and Install
+
 ```bash
 git clone https://github.com/dhruvpatel16120/Gas-Agency-System.git
 cd Gas-Agency-System
@@ -124,18 +131,23 @@ npm install
 ```
 
 ### 2. Run Interactive Setup Script
+
 Configure environment variables quickly and interactively by running:
+
 ```bash
 npm run setup
 ```
+
 This guided CLI will prompt you for:
+
 - Database Connection URLs (Pooler/Transaction and Direct URLs)
 - NextAuth configuration details (automatically generating secure secrets if needed)
 - SMTP Gmail credentials (providing steps to generate a Gmail App Password)
 - Payment gateway configurations (`ADMIN_UPI_ID`)
 
 ### 3. Database Configuration
-Based on your database choice in the [Prerequisites](#-prerequisites), configure your `.env` variables accordingly. 
+
+Based on your database choice in the [Prerequisites](#-prerequisites), configure your `.env` variables accordingly.
 
 > [!IMPORTANT]
 > Since Prisma migrations execute DDL commands, connecting to a pooled database in Transaction Mode (e.g. Supabase port 6543) will result in `prepared statement "s1" already exists` errors. You must provide a **DIRECT_URL** connecting to port 5432 (or direct database host) to bypass the connection pooler.
@@ -143,6 +155,7 @@ Based on your database choice in the [Prerequisites](#-prerequisites), configure
 Follow the instructions below for your selected setup:
 
 #### Option A: Local PC PostgreSQL Setup
+
 1. Make sure your local PostgreSQL service is running.
 2. In `.env`, set:
    ```env
@@ -151,6 +164,7 @@ Follow the instructions below for your selected setup:
    ```
 
 #### Option B: Supabase Setup
+
 1. Go to [Supabase Console](https://supabase.com/) and provision a new project.
 2. Under **Project Settings** → **Database**, get your connection strings.
 3. Select **Transaction Mode** (port 6543) for `DATABASE_URL` (requires `?pgbouncer=true` parameter).
@@ -161,6 +175,7 @@ Follow the instructions below for your selected setup:
    ```
 
 #### Option C: Railway Setup
+
 1. Go to [Railway](https://railway.com/) and create a new project with PostgreSQL.
 2. Under variables, copy the **`DATABASE_PUBLIC_URL`** (or `DATABASE_URL`).
 3. If not using a pooler, you can point both variables to the same connection URL:
@@ -170,6 +185,7 @@ Follow the instructions below for your selected setup:
    ```
 
 #### Option D: Neon Setup
+
 1. Go to [Neon Console](https://neon.tech/) and create a database project.
 2. In your connection details, choose the **pooled** connection URL for `DATABASE_URL` (for transaction handling).
 3. Choose the **unpooled** direct connection URL for `DIRECT_URL`.
@@ -179,11 +195,15 @@ Follow the instructions below for your selected setup:
    ```
 
 ### 4. Apply Database Schema & Seed Data
+
 You can easily handle this step interactively by running:
+
 ```bash
 npm run setup:db
 ```
+
 This CLI tool allows you to:
+
 1. Generate the Prisma Client
 2. Run migrations (`npm run db:migrate` / `npm run db:push`)
 3. Reset Database (⚠️ Destructive)
@@ -191,16 +211,21 @@ This CLI tool allows you to:
 5. Launch Prisma Studio (`npm run db:studio`)
 
 ### 5. Create Admin Account
+
 Create and manage your administrator account interactively:
+
 ```bash
 npm run admin
 ```
+
 Select **Create or Update Admin User** from the menu and follow the prompts.
 
 ### 6. Run Development Server
+
 ```bash
 npm run dev
 ```
+
 Visit **[http://localhost:3000](http://localhost:3000)** in your browser!
 
 ---
@@ -209,10 +234,13 @@ Visit **[http://localhost:3000](http://localhost:3000)** in your browser!
 
 Our system comes with a built-in admin utility to manage roles, credentials, and user deletion.
 Run:
+
 ```bash
 npm run admin
 ```
+
 **Available Commands in Menu:**
+
 - **Create or Update Admin User**: Register new administrators or promote existing users.
 - **List Admin Users**: Quickly view all admin emails and identifiers.
 - **Change Admin Password**: Prompt to securely change password with validation checks.
@@ -246,23 +274,23 @@ gas-agency-system/
 
 ## 🔧 Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Starts Next.js development server in Turbopack mode |
-| `npm run build` | Builds the application for production (includes client generation) |
-| `npm run start` | Starts Next.js production server |
-| `npm run setup` | Launches master interactive project setup menu |
-| `npm run setup:env` | Launches interactive environment config builder |
-| `npm run setup:db` | Launches interactive database migrations and commands utility |
-| `npm run admin` | Launches interactive administrator account manager |
-| `npm run db:generate` | Manually generates the Prisma Client |
-| `npm run db:push` | Syncs schema changes directly with the database |
-| `npm run db:migrate` | Runs database migrations safely via Prisma Migrate |
-| `npm run db:reset` | Wipes and resets database schema and data (⚠️ Destructive) |
-| `npm run db:seed` | Runs seed script to populate sample cylinders and data |
-| `npm run db:studio` | Opens Prisma Studio GUI in your browser |
-| `npm run lint` | Runs ESLint analysis for code quality |
-| `npm run format` | Formats codebase with Prettier |
+| Command               | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `npm run dev`         | Starts Next.js development server in Turbopack mode                |
+| `npm run build`       | Builds the application for production (includes client generation) |
+| `npm run start`       | Starts Next.js production server                                   |
+| `npm run setup`       | Launches master interactive project setup menu                     |
+| `npm run setup:env`   | Launches interactive environment config builder                    |
+| `npm run setup:db`    | Launches interactive database migrations and commands utility      |
+| `npm run admin`       | Launches interactive administrator account manager                 |
+| `npm run db:generate` | Manually generates the Prisma Client                               |
+| `npm run db:push`     | Syncs schema changes directly with the database                    |
+| `npm run db:migrate`  | Runs database migrations safely via Prisma Migrate                 |
+| `npm run db:reset`    | Wipes and resets database schema and data (⚠️ Destructive)         |
+| `npm run db:seed`     | Runs seed script to populate sample cylinders and data             |
+| `npm run db:studio`   | Opens Prisma Studio GUI in your browser                            |
+| `npm run lint`        | Runs ESLint analysis for code quality                              |
+| `npm run format`      | Formats codebase with Prettier                                     |
 
 ---
 
@@ -281,6 +309,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ## 👨‍💻 Author
 
 **Dhruv Patel**
+
 - GitHub: [@dhruvpatel16120](https://github.com/dhruvpatel16120)
 - Portfolio: [dhruvpatelofficial.vercel.app](https://dhruvpatelofficial.vercel.app/)
 
@@ -289,6 +318,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ## 📞 Support
 
 If you have questions or need support:
+
 1. Refer to our [Technical Documentation](Documentation.md)
 2. Open an Issue on our repository
 3. Star this project if you find it helpful! ⭐
