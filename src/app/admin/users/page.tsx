@@ -69,7 +69,7 @@ export default function AdminUsersPage() {
   );
 
   const refresh = () => fetchUsers();
-  const listDepsKey = `${page}|${limit}|${role}|${sortBy}|${sortOrder}|${search.trim()}`;
+  const listDepsKey = `${page}|${limit}|${role}|${sortBy}|${sortOrder}|${search.trim()}|${status}|${session?.user?.role}`;
 
   useEffect(() => {
     if (session?.user?.role === "ADMIN") {

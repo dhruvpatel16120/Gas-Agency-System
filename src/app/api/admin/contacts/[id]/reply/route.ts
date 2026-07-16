@@ -6,18 +6,27 @@ import {
   successResponse,
 } from "@/lib/api-middleware";
 import { NotFoundError } from "@/lib/error-handler";
-import { sendEmail } from "@/lib/email";
+import { sendContactReplyEmail } from "@/lib/email";
 
 async function postReplyHandler(
   request: NextRequest,
   context?: Record<string, unknown>,
 ) {
-  const { params, session } = (context || {}) as {
-    params?: { id?: string };
-    session?: { user?: { id: string } };
+  const { session } = (context || {}) as {
+    session?: { user?: { id: string; email: string } };
   };
-  const id = params?.id;
+  // In Next.js 15+, params is a Promise
+  const rawParams = (context as Record<string, unknown>)?.params;
+  const awaited =
+    rawParams && typeof (rawParams as Promise<{ id?: string }>).then === "function"
+      ? await (rawParams as Promise<{ id?: string }>)
+      : (rawParams as { id?: string } | undefined);
+  const id = awaited?.id;
   if (!id) throw new NotFoundError("Contact ID is required");
+
+  console.log("DEBUG REPLY SESSION:", JSON.stringify(session));
+
+
 
   const body = await parseRequestBody<{ body: string }>(request);
   if (!body?.body || body.body.trim().length === 0) {
@@ -35,11 +44,23 @@ async function postReplyHandler(
   });
   if (!contact) throw new NotFoundError("Contact not found");
 
+  const authorEmail = session?.user?.email;
+  if (!authorEmail) throw new NotFoundError("Author email is required");
+
+  const dbUser = await prisma.user.findUnique({
+    where: { email: authorEmail },
+    select: { id: true },
+  });
+
+  if (!dbUser) {
+    throw new NotFoundError("Admin user not found. Please log in again.");
+  }
+
   const reply = await prisma.$transaction(async (tx) => {
     const created = await tx.contactReply.create({
       data: {
         messageId: id,
-        authorId: session!.user!.id,
+        authorId: dbUser.id,
         body: body.body,
         isAdmin: true,
       },
@@ -52,12 +73,13 @@ async function postReplyHandler(
     return created;
   });
 
-  // Email the user (simple text email)
-  void sendEmail({
-    to: contact.user.email,
-    subject: `Re: ${contact.subject}`,
-    html: `<p>Hello ${contact.user.name},</p><p>${body.body.replace(/\n/g, "<br/>")}</p><p>— Support</p>`,
-    text: `Hello ${contact.user.name},\n\n${body.body}\n\n— Support`,
+
+  // Email the user (professional HTML template)
+  void sendContactReplyEmail({
+    toEmail: contact.user.email,
+    userName: contact.user.name,
+    subject: contact.subject,
+    replyBody: body.body,
   });
 
   return successResponse(reply, "Reply sent");

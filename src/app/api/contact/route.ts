@@ -50,6 +50,14 @@ const handler = async (
     return errorResponse("NOT_FOUND", "User not found", 404);
   }
 
+  let normalizedPriority = "MEDIUM";
+  if (priority) {
+    const p = priority.toUpperCase();
+    if (p === "LOW") normalizedPriority = "LOW";
+    else if (p === "HIGH" || p === "URGENT") normalizedPriority = "HIGH";
+    else if (p === "MEDIUM" || p === "NORMAL") normalizedPriority = "MEDIUM";
+  }
+
   // Persist contact message
   const saved = await prisma.contactMessage.create({
     data: {
@@ -57,7 +65,7 @@ const handler = async (
       subject,
       message,
       category: category || null,
-      priority: priority || null,
+      priority: normalizedPriority,
       relatedBookingId: relatedBookingId || null,
       preferredContact: preferredContact || null,
       phone: phone || null,

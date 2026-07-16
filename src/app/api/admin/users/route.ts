@@ -210,7 +210,7 @@ async function createUserHandler(
   );
 
   // Get inviter details from session
-  const session = context?.session as any;
+  const session = context?.session as { user?: { name?: string | null; email?: string | null } } | undefined;
   const adminName = session?.user?.name || "Admin";
   const adminEmail = session?.user?.email || "";
 

@@ -1275,3 +1275,44 @@ export const sendAdminInvitationEmail = async (params: {
     text: template.text,
   });
 };
+
+export const sendContactReplyEmail = async (params: {
+  toEmail: string;
+  userName: string;
+  subject: string;
+  replyBody: string;
+}): Promise<boolean> => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+      <div style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color: white; padding: 28px 24px; text-align: center;">
+        <h1 style="margin: 0; font-size: 24px; font-weight: bold; color: white;">Gas Agency Support</h1>
+        <p style="margin: 6px 0 0 0; opacity: 0.9; font-size: 14px; color: white;">Response to your inquiry</p>
+      </div>
+      <div style="background: #ffffff; padding: 24px; color: #1f2937; line-height: 1.6;">
+        <p style="margin-top: 0; font-size: 16px;">Hello <strong>${params.userName}</strong>,</p>
+        <p style="margin-bottom: 20px;">We have received a response from our support team regarding your inquiry on <strong>"${params.subject}"</strong>:</p>
+        
+        <div style="background: #faf5ff; border-left: 4px solid #7c3aed; padding: 16px 20px; border-radius: 4px; margin: 20px 0; color: #374151;">
+          <p style="margin: 0; white-space: pre-wrap; font-size: 15px;">${params.replyBody}</p>
+        </div>
+        
+        <p style="margin-top: 24px; margin-bottom: 0;">If you have any further questions, please feel free to reply directly to this email or contact us through the portal.</p>
+        
+        <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 28px 0;" />
+        
+        <div style="text-align: center;">
+          <p style="margin: 0; color: #9ca3af; font-size: 13px;">Best regards,</p>
+          <p style="margin: 4px 0 0 0; color: #4b5563; font-weight: bold; font-size: 14px;">Gas Agency Support Team</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
+    to: params.toEmail,
+    subject: `Re: ${params.subject}`,
+    html,
+    text: `Hello ${params.userName},\n\nWe have received a response from our support team regarding your inquiry on "${params.subject}":\n\n${params.replyBody}\n\nBest regards,\nGas Agency Support Team`,
+  });
+};
+

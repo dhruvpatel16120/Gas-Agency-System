@@ -27,7 +27,7 @@ export default function ContactPage() {
     phone: "",
     subject: "",
     category: "General",
-    priority: "Normal",
+    priority: "MEDIUM",
     relatedBookingId: "",
     preferredContact: "Email",
     message: "",
@@ -198,10 +198,9 @@ export default function ContactPage() {
                       }
                       className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                     >
-                      <option>Low</option>
-                      <option>Normal</option>
-                      <option>High</option>
-                      <option>Urgent</option>
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
                     </select>
                   </div>
                   <div>

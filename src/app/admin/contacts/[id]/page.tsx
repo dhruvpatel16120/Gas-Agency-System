@@ -121,8 +121,8 @@ export default function AdminContactDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    if (id) void fetchData();
-  }, [id, fetchData]);
+    if (id && session?.user?.role === "ADMIN") void fetchData();
+  }, [id, fetchData, session]);
 
   const onUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

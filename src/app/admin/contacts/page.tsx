@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AdminNavbar from "@/components/AdminNavbar";
@@ -17,6 +17,14 @@ type ContactRow = {
   priority?: string | null;
   user: { id: string; name: string; email: string };
   _count: { replies: number };
+};
+
+type StatsOverview = {
+  total: number;
+  new: number;
+  open: number;
+  resolved: number;
+  archived: number;
 };
 
 const statusConfig = {
@@ -59,10 +67,12 @@ export default function AdminContactsPage() {
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [state, setState] = useState<
     "ALL" | "NEW" | "OPEN" | "RESOLVED" | "ARCHIVED"
   >("ALL");
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<StatsOverview>({ total: 0, new: 0, open: 0, resolved: 0, archived: 0 });
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -71,12 +81,29 @@ export default function AdminContactsPage() {
     else if (session.user.role !== "ADMIN") router.push("/user");
   }, [session, status, router]);
 
-  const fetchItems = useCallback(async () => {
+  // Debounce search input — only updates debouncedSearch, no fetching here
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 500);
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    };
+  }, [search]);
+
+  const fetchItems = async () => {
     setLoading(true);
     const params = new URLSearchParams();
     params.set("page", String(page));
     params.set("limit", String(limit));
-    if (search) params.set("search", search);
+    if (debouncedSearch) params.set("search", debouncedSearch);
     if (state !== "ALL") params.set("status", state);
     const res = await fetch(`/api/admin/contacts?${params.toString()}`, {
       cache: "no-store",
@@ -87,67 +114,57 @@ export default function AdminContactsPage() {
       setTotal(json.data.pagination.total);
     }
     setLoading(false);
-  }, [page, limit, search, state]);
+  };
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = async () => {
     try {
       const res = await fetch("/api/admin/contacts/stats", {
         cache: "no-store",
       });
       const json = await res.json();
       if (json.success) {
-        // Update stats based on real data
-        setTotal(json.data.overview.total);
+        // Store stats separately — do NOT overwrite pagination total
+        setStats(json.data.overview);
       }
     } catch (error) {
       console.error("Failed to fetch stats:", error);
     }
-  }, []);
+  };
+
+  // Single dependency key for all list-affecting state (avoids circular deps)
+  const listDepsKey = `${page}|${limit}|${state}|${debouncedSearch}|${status}|${session?.user?.role}`;
 
   useEffect(() => {
     if (session?.user?.role === "ADMIN") {
       void fetchItems();
       void fetchStats();
     }
-  }, [session, fetchItems, fetchStats]);
-
-  // Debounced search
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-    searchTimeoutRef.current = setTimeout(() => {
-      setPage(1);
-      void fetchItems();
-    }, 500);
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = null;
-      }
-    };
-  }, [search, fetchItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listDepsKey]);
 
   const totalPages = useMemo(
     () => Math.ceil(total / limit) || 1,
     [total, limit],
   );
 
-  const getStatusIcon = (status: string) => {
-    const config = statusConfig[status as keyof typeof statusConfig];
+  const refresh = () => {
+    void fetchItems();
+    void fetchStats();
+  };
+
+  const getStatusIcon = (statusVal: string) => {
+    const config = statusConfig[statusVal as keyof typeof statusConfig];
     const IconComponent = config?.icon || Clock;
     return <IconComponent className="w-4 h-4" />;
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - date.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   if (status === "loading") return null;
@@ -170,7 +187,7 @@ export default function AdminContactsPage() {
                 </p>
               </div>
               <button
-                onClick={() => fetchItems()}
+                onClick={refresh}
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -179,12 +196,12 @@ export default function AdminContactsPage() {
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards — uses real stats from API, not current-page counts */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[
               {
                 title: "Total Messages",
-                value: total,
+                value: stats.total,
                 icon: MessageSquare,
                 color: "from-blue-500 to-blue-600",
                 bgColor: "bg-blue-50",
@@ -192,7 +209,7 @@ export default function AdminContactsPage() {
               },
               {
                 title: "New Tickets",
-                value: items.filter((i) => i.status === "NEW").length,
+                value: stats.new,
                 icon: Inbox,
                 color: "from-orange-500 to-orange-600",
                 bgColor: "bg-orange-50",
@@ -200,7 +217,7 @@ export default function AdminContactsPage() {
               },
               {
                 title: "Open Tickets",
-                value: items.filter((i) => i.status === "OPEN").length,
+                value: stats.open,
                 icon: AlertCircle,
                 color: "from-purple-500 to-purple-600",
                 bgColor: "bg-purple-50",
@@ -208,7 +225,7 @@ export default function AdminContactsPage() {
               },
               {
                 title: "Resolved",
-                value: items.filter((i) => i.status === "RESOLVED").length,
+                value: stats.resolved,
                 icon: CheckCircle2,
                 color: "from-green-500 to-green-600",
                 bgColor: "bg-green-50",
@@ -458,7 +475,7 @@ export default function AdminContactsPage() {
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-700">
                   Showing{" "}
-                  <span className="font-medium">{(page - 1) * limit + 1}</span>{" "}
+                  <span className="font-medium">{total === 0 ? 0 : (page - 1) * limit + 1}</span>{" "}
                   to{" "}
                   <span className="font-medium">
                     {Math.min(page * limit, total)}

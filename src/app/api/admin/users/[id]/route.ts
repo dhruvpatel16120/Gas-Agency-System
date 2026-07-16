@@ -91,7 +91,7 @@ async function updateUserHandler(
   });
   if (!existing) throw new NotFoundError("User not found");
 
-  const session = context?.session as any;
+  const session = context?.session as { user?: { email?: string | null } } | undefined;
   const currentAdminEmail = session?.user?.email;
 
   // 1. Admin cannot change information of other admins
@@ -185,7 +185,7 @@ async function deleteUserHandler(
   });
   if (!user) throw new NotFoundError("User not found");
 
-  const session = context?.session as any;
+  const session = context?.session as { user?: { email?: string | null } } | undefined;
   const currentAdminEmail = session?.user?.email;
 
   // 1. Admin cannot delete other admins
