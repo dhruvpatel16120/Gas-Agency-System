@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Flame, Menu, LogOut, User, Calendar, PlusCircle, ChevronDown, Phone } from "lucide-react";
+import { Flame, Menu, LogOut, User, Calendar, PlusCircle, ChevronDown, Phone, Key } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 
 export default function UserNavbar() {
@@ -13,6 +13,31 @@ export default function UserNavbar() {
   const [open, setOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+
+  const handleResetPassword = async () => {
+    if (!session?.user?.email) return;
+    setOpen(false);
+    setResettingPassword(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: session.user.email }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("A password reset email has been sent to your email address. Please check your inbox.");
+      } else {
+        alert(data.message || "Failed to initiate password reset.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while requesting password reset.");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
 
   // Centralized routes for menu links
   const PROFILE_ROUTE = "/user/profile";
@@ -166,6 +191,19 @@ export default function UserNavbar() {
                     </span>
                     <span className="flex-1">Profile</span>
                   </Link>
+                  <button
+                    onClick={() => void handleResetPassword()}
+                    disabled={resettingPassword}
+                    className="w-full group flex items-center gap-3 px-4 py-2 hover:bg-gray-50 text-left font-normal disabled:opacity-50"
+                    role="menuitem"
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-blue-50 text-blue-600">
+                      <Key className="w-4 h-4" />
+                    </span>
+                    <span className="flex-1">
+                      {resettingPassword ? "Resetting..." : "Reset Password"}
+                    </span>
+                  </button>
                   <Link
                     href="/user/contact"
                     className="group flex items-center gap-3 px-4 py-2 hover:bg-gray-50"
@@ -263,6 +301,16 @@ export default function UserNavbar() {
               >
                 Profile
               </Link>
+              <button
+                className="w-full text-left block px-4 py-3 rounded-lg hover:bg-gray-50 font-normal disabled:opacity-50"
+                disabled={resettingPassword}
+                onClick={() => {
+                  setMobileOpen(false);
+                  void handleResetPassword();
+                }}
+              >
+                {resettingPassword ? "Resetting Password..." : "Reset Password"}
+              </button>
               <Link
                 href="/user/contact"
                 className="block px-4 py-3 rounded-lg hover:bg-gray-50"
