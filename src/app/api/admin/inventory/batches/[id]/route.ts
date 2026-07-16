@@ -6,7 +6,7 @@ import {
   parseRequestBody,
   successResponse,
 } from "@/lib/api-middleware";
-import { NotFoundError } from "@/lib/error-handler";
+import { NotFoundError, ConflictError } from "@/lib/error-handler";
 //
 
 async function getBatchHandler(
@@ -68,16 +68,61 @@ async function updateBatchHandler(
       status: string;
     }>(request);
 
-    const batch = await prisma.cylinderBatch.update({
-      where: { id },
-      data: {
-        supplier: body.supplier,
-        invoiceNo: body.invoiceNo,
-        quantity: body.quantity,
-        notes: body.notes,
-        receivedAt: new Date(body.receivedAt),
-        status: body.status as BatchStatus,
-      },
+    if (typeof body.quantity !== "number" || body.quantity <= 0) {
+      throw new ConflictError("Batch quantity must be greater than 0.");
+    }
+
+    const batch = await prisma.$transaction(async (tx) => {
+      const oldBatch = await tx.cylinderBatch.findUnique({
+        where: { id },
+      });
+      if (!oldBatch) throw new NotFoundError("Batch not found");
+
+      const diff = body.quantity - oldBatch.quantity;
+      if (diff !== 0) {
+        const stock = await tx.cylinderStock.upsert({
+          where: { id: "default" },
+          update: {},
+          create: { id: "default", totalAvailable: 0 },
+        });
+
+        if (stock.totalAvailable + diff < 0) {
+          throw new ConflictError(
+            `Updating batch quantity would result in negative available stock. Current available stock is ${stock.totalAvailable}, cannot decrease by ${Math.abs(diff)}.`
+          );
+        }
+
+        // Update stock
+        await tx.cylinderStock.update({
+          where: { id: "default" },
+          data: { totalAvailable: { increment: diff } },
+        });
+
+        // Log adjustment
+        await tx.stockAdjustment.create({
+          data: {
+            stockId: "default",
+            delta: diff,
+            type: diff > 0 ? "RECEIVE" : "ISSUE",
+            reason: `Batch quantity updated for supplier ${body.supplier}`,
+            batchId: id,
+          },
+        });
+      }
+
+      const updated = await tx.cylinderBatch.update({
+        where: { id },
+        data: {
+          supplier: body.supplier,
+          invoiceNo: body.invoiceNo,
+          quantity: body.quantity,
+          notes: body.notes,
+          receivedAt: new Date(body.receivedAt),
+          status: body.status as BatchStatus,
+        },
+      });
+
+      return updated;
     });
 
     return successResponse(batch, "Batch updated successfully");
@@ -101,29 +146,56 @@ async function deleteBatchHandler(
   if (!id) throw new NotFoundError("Batch ID is required");
 
   try {
-    const batch = await prisma.cylinderBatch.findUnique({
-      where: { id },
-      select: { quantity: true },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const batch = await tx.cylinderBatch.findUnique({
+        where: { id },
+        select: { quantity: true, supplier: true },
+      });
 
-    if (!batch) throw new NotFoundError("Batch not found");
+      if (!batch) throw new NotFoundError("Batch not found");
 
-    // Delete the batch
-    await prisma.cylinderBatch.delete({
-      where: { id },
-    });
+      // Verify stock capacity before deletion
+      const stock = await tx.cylinderStock.upsert({
+        where: { id: "default" },
+        update: {},
+        create: { id: "default", totalAvailable: 0 },
+      });
 
-    // Update stock (decrease by batch quantity)
-    await prisma.cylinderStock.update({
-      where: { id: "default" },
-      data: {
-        totalAvailable: {
-          decrement: batch.quantity,
+      if (stock.totalAvailable - batch.quantity < 0) {
+        throw new ConflictError(
+          `Cannot delete batch: doing so would result in negative available stock. Current stock is ${stock.totalAvailable}, batch quantity is ${batch.quantity}.`
+        );
+      }
+
+      // Delete the batch
+      await tx.cylinderBatch.delete({
+        where: { id },
+      });
+
+      // Update stock (decrease by batch quantity)
+      await tx.cylinderStock.update({
+        where: { id: "default" },
+        data: {
+          totalAvailable: {
+            decrement: batch.quantity,
+          },
         },
-      },
+      });
+
+      // Log adjustment
+      await tx.stockAdjustment.create({
+        data: {
+          stockId: "default",
+          delta: -batch.quantity,
+          type: "ISSUE",
+          reason: `Deleted cylinder batch from supplier ${batch.supplier}`,
+        },
+      });
+
+      return { deleted: true };
     });
 
-    return successResponse({ deleted: true }, "Batch deleted successfully");
+    return successResponse(result, "Batch deleted successfully");
   } catch (error) {
     console.error("Failed to delete batch:", error);
     throw error;

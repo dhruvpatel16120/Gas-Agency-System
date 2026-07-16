@@ -4,6 +4,7 @@ import { sendBookingRequestEmail } from "@/lib/email";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import type { Prisma } from "@prisma/client";
+import { deductStock } from "@/lib/stock";
 
 // POST: confirm UPI payment and then create booking + payment atomically
 export async function POST(request: NextRequest) {
@@ -88,6 +89,9 @@ export async function POST(request: NextRequest) {
           notes: notes || undefined,
         },
       });
+
+      // Deduct available stock
+      await deductStock(booking.id, qty, tx);
 
       // Events
       await tx.bookingEvent.createMany({

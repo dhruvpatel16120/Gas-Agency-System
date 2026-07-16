@@ -14,6 +14,7 @@ import {
   Calendar,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 
 export default function NewBatchPage() {
   const { data: session, status } = useSession();
@@ -32,20 +33,30 @@ export default function NewBatchPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
+    const qty = parseInt(formData.quantity) || 0;
+    if (qty <= 0) {
+      toast.error("Batch quantity must be greater than 0");
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await fetch("/api/admin/inventory/batches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          quantity: parseInt(formData.quantity),
+          quantity: qty,
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Batch created successfully");
         router.push("/admin/inventory");
+      } else {
+        toast.error(data.message || "Failed to create batch");
       }
     } catch (error) {
       console.error("Failed to create batch:", error);

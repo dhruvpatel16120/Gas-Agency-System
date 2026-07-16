@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendDeliveryStatusEmail } from "@/lib/email";
+import { restoreStock } from "@/lib/stock";
 
 export async function PUT(
   request: NextRequest,
@@ -85,12 +86,31 @@ export async function PUT(
 
     // Only update booking status if it's different
     if (newBookingStatus !== deliveryAssignment.booking.status) {
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: newBookingStatus,
-          updatedAt: new Date(),
-        },
+      await prisma.$transaction(async (tx) => {
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            status: newBookingStatus,
+            updatedAt: new Date(),
+          },
+        });
+
+        if (newBookingStatus === "CANCELLED") {
+          // Restore user quota
+          await tx.user.update({
+            where: { id: deliveryAssignment.booking.userId },
+            data: { remainingQuota: { increment: deliveryAssignment.booking.quantity } },
+          });
+
+          // Restore available stock
+          await restoreStock(bookingId, deliveryAssignment.booking.quantity, tx);
+
+          // Mark related payments as CANCELLED (except successful ones)
+          await tx.payment.updateMany({
+            where: { bookingId, status: { not: "SUCCESS" } },
+            data: { status: "CANCELLED" },
+          });
+        }
       });
 
       // Create booking event for status change

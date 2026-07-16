@@ -10,6 +10,7 @@ import {
   sendBookingApprovalEmail,
 } from "@/lib/email";
 import puppeteer from "puppeteer";
+import { restoreStock } from "@/lib/stock";
 
 export async function PUT(
   request: NextRequest,
@@ -113,27 +114,48 @@ export async function PUT(
       );
     }
 
-    // Update booking status
-    const updatedBooking = await prisma.booking.update({
-      where: { id: bookingId },
-      data: {
-        status: newStatus,
-        ...(newStatus === "DELIVERED" && { deliveredAt: new Date() }),
-        updatedAt: new Date(),
-      },
-    });
+    // Update booking status and handle stock/quota restoration in transaction
+    const updatedBooking = await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: newStatus,
+          ...(newStatus === "DELIVERED" && { deliveredAt: new Date() }),
+          updatedAt: new Date(),
+        },
+      });
 
-    // Create booking event
-    await prisma.bookingEvent.create({
-      data: {
-        bookingId,
-        status: newStatus,
-        title: `Status Updated to ${newStatus}`,
-        description:
-          newStatus === "CANCELLED" && cancellationReason
-            ? `Booking cancelled: ${cancellationReason}`
-            : `Booking status changed to ${newStatus}`,
-      },
+      if (newStatus === "CANCELLED" && booking.status !== "CANCELLED") {
+        // Restore user quota
+        await tx.user.update({
+          where: { id: booking.userId },
+          data: { remainingQuota: { increment: booking.quantity } },
+        });
+
+        // Restore available stock
+        await restoreStock(bookingId, booking.quantity, tx);
+
+        // Mark related payments as CANCELLED (except successful ones)
+        await tx.payment.updateMany({
+          where: { bookingId, status: { not: "SUCCESS" } },
+          data: { status: "CANCELLED" },
+        });
+      }
+
+      // Create booking event
+      await tx.bookingEvent.create({
+        data: {
+          bookingId,
+          status: newStatus,
+          title: `Status Updated to ${newStatus}`,
+          description:
+            newStatus === "CANCELLED" && cancellationReason
+              ? `Booking cancelled: ${cancellationReason}`
+              : `Booking status changed to ${newStatus}`,
+        },
+      });
+
+      return updated;
     });
 
     // Send email notifications based on status

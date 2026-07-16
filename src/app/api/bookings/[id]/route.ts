@@ -13,6 +13,7 @@ import {
   sendBookingCancelledByUserEmail,
 } from "@/lib/email";
 import { sanitizeInput } from "@/lib/security";
+import { restoreStock, adjustStockForBookingQuantityChange } from "@/lib/stock";
 
 // Validation schemas
 const bookingUpdateSchema = z.object({
@@ -204,6 +205,9 @@ async function updateBookingHandler(
         data: { remainingQuota: { increment: currentBooking.quantity } },
       });
 
+      // Restore available stock
+      await restoreStock(bookingId, currentBooking.quantity, tx);
+
       // Create booking event
       await tx.bookingEvent.create({
         data: {
@@ -330,6 +334,11 @@ async function updateBookingHandler(
           data: { remainingQuota: { increment: Math.abs(quantityDiff) } },
         });
       }
+
+      // Adjust available stock (only if booking was not already cancelled)
+      if (currentBooking.status !== "CANCELLED" && validatedData.status !== "CANCELLED") {
+        await adjustStockForBookingQuantityChange(bookingId, currentBooking.quantity, validatedData.quantity, tx);
+      }
     }
 
     // Update booking
@@ -359,6 +368,9 @@ async function updateBookingHandler(
           where: { id: currentBooking.userId },
           data: { remainingQuota: { increment: currentBooking.quantity } },
         });
+
+        // Restore available stock
+        await restoreStock(bookingId, currentBooking.quantity, tx);
 
         // Mark related payments as CANCELLED (except successful ones)
         await tx.payment.updateMany({

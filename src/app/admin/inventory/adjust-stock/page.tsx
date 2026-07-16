@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminNavbar from "@/components/AdminNavbar";
@@ -15,11 +15,13 @@ import {
   Calendar,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 
 export default function AdjustStockPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     type: "CORRECTION",
     delta: "",
@@ -28,25 +30,60 @@ export default function AdjustStockPage() {
     adjustmentDate: new Date().toISOString().split("T")[0],
   });
 
+  const loadStock = async () => {
+    try {
+      const res = await fetch("/api/bookings/stock");
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableStock(json.data.totalAvailable);
+      }
+    } catch (error) {
+      console.error("Failed to load stock:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.user?.role === "ADMIN") {
+      void loadStock();
+    }
+  }, [session]);
+
   if (status === "loading") return null;
   if (!session || session.user.role !== "ADMIN") return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
+    const deltaVal = parseInt(formData.delta) || 0;
+    if (deltaVal === 0) {
+      toast.error("Adjustment quantity change (delta) cannot be 0");
+      return;
+    }
+
+    if (availableStock !== null && availableStock + deltaVal < 0) {
+      toast.error(
+        `Insufficient stock: current stock is ${availableStock}, cannot decrease by ${Math.abs(deltaVal)}`
+      );
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await fetch("/api/admin/inventory/adjustments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          delta: parseInt(formData.delta),
+          delta: deltaVal,
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Stock adjusted successfully");
         router.push("/admin/inventory");
+      } else {
+        toast.error(data.message || "Failed to adjust stock");
       }
     } catch (error) {
       console.error("Failed to adjust stock:", error);

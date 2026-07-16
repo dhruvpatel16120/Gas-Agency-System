@@ -6,6 +6,7 @@ import {
   sendBookingApprovalEmail,
   sendBookingCancelledByAdminEmail,
 } from "@/lib/email";
+import { restoreStock } from "@/lib/stock";
 
 // POST - Perform bulk actions on bookings
 async function bulkActionHandler(request: NextRequest): Promise<NextResponse> {
@@ -261,12 +262,13 @@ async function bulkActionHandler(request: NextRequest): Promise<NextResponse> {
             },
             data: { status: "CANCELLED" },
           });
-          // Restore user quotas for cancelled bookings
+          // Restore user quotas and stock for cancelled bookings
           for (const b of eligibleForCancel) {
             await tx.user.update({
               where: { id: b.userId },
               data: { remainingQuota: { increment: b.quantity } },
             });
+            await restoreStock(b.id, b.quantity, tx);
           }
           // Append reason to notes
           await Promise.all(

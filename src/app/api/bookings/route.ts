@@ -9,6 +9,7 @@ import {
 import { bookingSchema, paginationSchema } from "@/lib/validation";
 import { ConflictError, NotFoundError } from "@/lib/error-handler";
 import { sendBookingRequestEmail } from "@/lib/email";
+import { deductStock } from "@/lib/stock";
 import { Prisma, BookingStatus, PaymentMethod } from "@prisma/client";
 
 const listQuerySchema = z.object({
@@ -102,6 +103,9 @@ async function createBookingHandler(
         ...(expectedDate ? { expectedDate: new Date(expectedDate) } : {}),
       },
     });
+
+    // Deduct available stock
+    await deductStock(created.id, quantity, tx);
 
     // Seed initial tracking events
     await tx.bookingEvent.createMany({

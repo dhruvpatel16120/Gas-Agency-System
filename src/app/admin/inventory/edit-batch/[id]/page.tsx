@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "react-hot-toast";
 
 export default function EditBatchPage() {
   const { data: session, status } = useSession();
@@ -24,6 +25,8 @@ export default function EditBatchPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [originalQuantity, setOriginalQuantity] = useState<number>(0);
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     supplier: "",
     invoiceNo: "",
@@ -36,11 +39,13 @@ export default function EditBatchPage() {
   const loadBatch = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/inventory/batches/${batchId}`, {
-        cache: "no-store",
-      });
-      if (res.ok) {
-        const data = await res.json();
+      const [batchRes, stockRes] = await Promise.all([
+        fetch(`/api/admin/inventory/batches/${batchId}`, { cache: "no-store" }),
+        fetch("/api/bookings/stock")
+      ]);
+
+      if (batchRes.ok) {
+        const data = await batchRes.json();
         if (data.success) {
           const batch = data.data;
           setFormData({
@@ -53,10 +58,16 @@ export default function EditBatchPage() {
               : "",
             status: batch.status || "ACTIVE",
           });
+          setOriginalQuantity(batch.quantity || 0);
         }
       }
+
+      if (stockRes.ok) {
+        const json = await stockRes.json();
+        setAvailableStock(json.data.totalAvailable);
+      }
     } catch (error) {
-      console.error("Failed to load batch:", error);
+      console.error("Failed to load batch/stock:", error);
     } finally {
       setLoading(false);
     }
@@ -73,6 +84,21 @@ export default function EditBatchPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const qty = parseInt(formData.quantity) || 0;
+    if (qty <= 0) {
+      toast.error("Batch quantity must be greater than 0");
+      return;
+    }
+
+    const diff = qty - originalQuantity;
+    if (availableStock !== null && availableStock + diff < 0) {
+      toast.error(
+        `Insufficient stock: updating batch quantity would reduce available stock below 0. Current available stock: ${availableStock}`
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -81,12 +107,16 @@ export default function EditBatchPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          quantity: parseInt(formData.quantity),
+          quantity: qty,
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Batch updated successfully");
         router.push("/admin/inventory");
+      } else {
+        toast.error(data.message || "Failed to update batch");
       }
     } catch (error) {
       console.error("Failed to update batch:", error);
@@ -98,14 +128,25 @@ export default function EditBatchPage() {
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this batch?")) return;
 
+    if (availableStock !== null && availableStock - originalQuantity < 0) {
+      toast.error(
+        `Cannot delete batch: doing so would reduce available stock below 0. Current available stock: ${availableStock}`
+      );
+      return;
+    }
+
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/inventory/batches/${batchId}`, {
         method: "DELETE",
       });
 
-      if (res.ok) {
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success("Batch deleted successfully");
         router.push("/admin/inventory");
+      } else {
+        toast.error(data.message || "Failed to delete batch");
       }
     } catch (error) {
       console.error("Failed to delete batch:", error);

@@ -27,6 +27,7 @@ export default function NewBookingPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
 
   // Form fields
   const [formData, setFormData] = useState({
@@ -60,11 +61,24 @@ export default function NewBookingPage() {
     }
   }, []);
 
+  const loadStock = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bookings/stock");
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableStock(json.data.totalAvailable);
+      }
+    } catch (error) {
+      console.error("Failed to load stock:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (session?.user?.role === "ADMIN") {
       void loadUsers();
+      void loadStock();
     }
-  }, [session, loadUsers]);
+  }, [session, loadUsers, loadStock]);
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -100,6 +114,13 @@ export default function NewBookingPage() {
     if (formData.quantity > selectedUser.remainingQuota) {
       toast.error(
         `User only has ${selectedUser.remainingQuota} cylinders remaining in their quota`,
+      );
+      return;
+    }
+
+    if (availableStock !== null && formData.quantity > availableStock) {
+      toast.error(
+        `Cylinder stock is not available for your request (only ${availableStock} in stock)`,
       );
       return;
     }
@@ -285,7 +306,7 @@ export default function NewBookingPage() {
                       required
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Max: {selectedUser?.remainingQuota || 12} cylinders
+                      Max: {selectedUser?.remainingQuota || 12} cylinders {availableStock !== null && `(Available Cylinder Stock: ${availableStock})`}
                     </p>
                   </div>
 

@@ -39,25 +39,48 @@ async function createBatchHandler(request: NextRequest) {
       receivedAt: string;
     }>(request);
 
-    const batch = await prisma.cylinderBatch.create({
-      data: {
-        supplier: body.supplier,
-        invoiceNo: body.invoiceNo,
-        quantity: body.quantity,
-        notes: body.notes,
-        receivedAt: new Date(body.receivedAt),
-        status: "ACTIVE",
-      },
-    });
+    if (!body.supplier || typeof body.supplier !== "string" || body.supplier.trim().length < 2) {
+      return successResponse({ error: "Invalid supplier name" }, "Invalid supplier name", 400);
+    }
 
-    // Update stock
-    await prisma.cylinderStock.update({
-      where: { id: "default" },
-      data: {
-        totalAvailable: {
-          increment: body.quantity,
+    if (typeof body.quantity !== "number" || body.quantity <= 0) {
+      return successResponse({ error: "Batch quantity must be greater than 0" }, "Batch quantity must be greater than 0", 400);
+    }
+
+    const batch = await prisma.$transaction(async (tx) => {
+      const b = await tx.cylinderBatch.create({
+        data: {
+          supplier: body.supplier,
+          invoiceNo: body.invoiceNo,
+          quantity: body.quantity,
+          notes: body.notes,
+          receivedAt: new Date(body.receivedAt),
+          status: "ACTIVE",
         },
-      },
+      });
+
+      // Update stock
+      await tx.cylinderStock.update({
+        where: { id: "default" },
+        data: {
+          totalAvailable: {
+            increment: body.quantity,
+          },
+        },
+      });
+
+      // Log stock adjustment
+      await tx.stockAdjustment.create({
+        data: {
+          stockId: "default",
+          delta: body.quantity,
+          type: "RECEIVE",
+          reason: `Cylinder batch received from ${body.supplier}`,
+          batchId: b.id,
+        },
+      });
+
+      return b;
     });
 
     return successResponse(batch, "Batch created successfully");

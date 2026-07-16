@@ -6,6 +6,7 @@ import {
   successResponse,
 } from "@/lib/api-middleware";
 import { z } from "zod";
+import { ConflictError } from "@/lib/error-handler";
 
 const adjustmentSchema = z.object({
   delta: z.number().int().min(-100000).max(100000),
@@ -53,6 +54,23 @@ async function createAdjustmentHandler(request: NextRequest) {
     const validatedData = adjustmentSchema.parse(body);
 
     const adjustment = await prisma.$transaction(async (tx) => {
+      if (validatedData.delta === 0) {
+        throw new ConflictError("Adjustment quantity change (delta) cannot be 0.");
+      }
+
+      // Load current stock
+      const stock = await tx.cylinderStock.upsert({
+        where: { id: "default" },
+        update: {},
+        create: { id: "default", totalAvailable: 0 },
+      });
+
+      if (stock.totalAvailable + validatedData.delta < 0) {
+        throw new ConflictError(
+          `Insufficient stock. Current available stock is ${stock.totalAvailable}, cannot decrease by ${Math.abs(validatedData.delta)}.`
+        );
+      }
+
       // Create the adjustment record
       const adjustmentRecord = await tx.stockAdjustment.create({
         data: {

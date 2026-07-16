@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma, BookingStatus, PaymentMethod } from "@prisma/client";
 import { withMiddleware, parseRequestBody } from "@/lib/api-middleware";
 import { z } from "zod";
+import { deductStock } from "@/lib/stock";
 
 // GET - Fetch all bookings with filters
 async function listBookingsHandler(
@@ -192,64 +193,69 @@ async function createBookingHandler(
       );
     }
 
-    // Check user quota
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { remainingQuota: true },
-    });
+    // Create booking and update quota/stock atomically in transaction
+    const booking = await prisma.$transaction(async (tx) => {
+      // Check user quota
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { remainingQuota: true },
+      });
 
-    if (!user || user.remainingQuota < quantity) {
-      return NextResponse.json(
-        { success: false, message: "User quota exceeded" },
-        { status: 400 },
-      );
-    }
+      if (!user || user.remainingQuota < quantity) {
+        throw new Error("User quota exceeded");
+      }
 
-    // Create booking
-    const booking = await prisma.booking.create({
-      data: {
-        userId,
-        userName,
-        userEmail,
-        userPhone,
-        userAddress,
-        quantity,
-        paymentMethod,
-        receiverName,
-        receiverPhone,
-        expectedDate: expectedDate ? new Date(expectedDate) : null,
-        notes,
-        status,
-        requestedAt: new Date(),
-      },
-    });
+      // Create booking
+      const created = await tx.booking.create({
+        data: {
+          userId,
+          userName,
+          userEmail,
+          userPhone,
+          userAddress,
+          quantity,
+          paymentMethod,
+          receiverName,
+          receiverPhone,
+          expectedDate: expectedDate ? new Date(expectedDate) : null,
+          notes,
+          status,
+          requestedAt: new Date(),
+        },
+      });
 
-    // Update user quota
-    await prisma.user.update({
-      where: { id: userId },
-      data: { remainingQuota: { decrement: quantity } },
-    });
+      // Update user quota
+      await tx.user.update({
+        where: { id: userId },
+        data: { remainingQuota: { decrement: quantity } },
+      });
 
-    // Create booking event
-    await prisma.bookingEvent.create({
-      data: {
-        bookingId: booking.id,
-        status: status,
-        title: `Booking ${status.toLowerCase()}`,
-        description: `Booking created by admin with status: ${status}`,
-        createdAt: new Date(),
-      },
-    });
+      // Deduct available stock
+      await deductStock(created.id, quantity, tx);
 
-    // Create payment record
-    await prisma.payment.create({
-      data: {
-        bookingId: booking.id,
-        amount: quantity * 1100, // ₹1100 per cylinder
-        method: paymentMethod,
-        status: paymentMethod === "UPI" ? "PENDING" : "PENDING",
-        createdAt: new Date(),
-      },
+      // Create booking event
+      await tx.bookingEvent.create({
+        data: {
+          bookingId: created.id,
+          status: status,
+          title: `Booking ${status.toLowerCase()}`,
+          description: `Booking created by admin with status: ${status}`,
+          createdAt: new Date(),
+        },
+      });
+
+      // Create payment record
+      await tx.payment.create({
+        data: {
+          bookingId: created.id,
+          amount: quantity * 1100, // ₹1100 per cylinder
+          method: paymentMethod,
+          status: "PENDING",
+          createdAt: new Date(),
+        },
+      });
+
+      return created;
     });
 
     // Send confirmation email if UPI payment
@@ -265,9 +271,10 @@ async function createBookingHandler(
     });
   } catch (error) {
     console.error("Failed to create booking:", error);
+    const message = error instanceof Error ? error.message : "Failed to create booking";
     return NextResponse.json(
-      { success: false, message: "Failed to create booking" },
-      { status: 500 },
+      { success: false, message },
+      { status: 400 },
     );
   }
 }

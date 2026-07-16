@@ -33,6 +33,8 @@ export default function BookCylinderPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(true);
+  const [availableStock, setAvailableStock] = useState<number | null>(null);
+  const [stockLoading, setStockLoading] = useState(true);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -43,18 +45,28 @@ export default function BookCylinderPage() {
 
   const loadProfile = useCallback(async () => {
     try {
-      const res = await fetch("/api/user/profile");
-      if (res.ok) {
-        const json = await res.json();
+      const [profileRes, stockRes] = await Promise.all([
+        fetch("/api/user/profile"),
+        fetch("/api/bookings/stock")
+      ]);
+
+      if (profileRes.ok) {
+        const json = await profileRes.json();
         const data = json.data || {};
         if (!receiverName) setReceiverName(data.name || "");
         if (!receiverPhone) setReceiverPhone(data.phone || "");
         setRemainingQuota(data.remainingQuota || 0);
       }
+
+      if (stockRes.ok) {
+        const json = await stockRes.json();
+        setAvailableStock(json.data.totalAvailable);
+      }
     } catch {
       // no-op
     } finally {
       setQuotaLoading(false);
+      setStockLoading(false);
     }
   }, [receiverName, receiverPhone]);
 
@@ -83,6 +95,9 @@ export default function BookCylinderPage() {
     if (quantity < 1) e.quantity = "Quantity must be at least 1";
     if (quantity > (remainingQuota || 0))
       e.quantity = `You can only book up to ${remainingQuota} cylinder(s)`;
+    if (availableStock !== null && quantity > availableStock) {
+      e.quantity = `Cylinder stock is not available for your request (only ${availableStock} in stock)`;
+    }
     if (expectedDate && new Date(expectedDate) < new Date()) {
       e.expectedDate = "Expected date cannot be in the past";
     }
@@ -136,7 +151,7 @@ export default function BookCylinderPage() {
     }
   };
 
-  if (status === "loading" || !session || quotaLoading) {
+  if (status === "loading" || !session || quotaLoading || stockLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -190,6 +205,48 @@ export default function BookCylinderPage() {
                 </p>
                 <p>Contact support if you believe this is an error.</p>
               </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Check if cylinder stock is available
+  if (availableStock !== null && availableStock <= 0) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <UserNavbar />
+        <main className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+              <svg
+                className="h-8 w-8 text-red-600"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              Cylinder Stock Unavailable
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              We are currently out of stock for gas cylinders. We cannot accept new bookings at this time. Please check back later.
+            </p>
+            <div className="space-y-4">
+              <button
+                onClick={() => router.push("/user")}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Go to Dashboard
+              </button>
             </div>
           </div>
         </main>
@@ -328,7 +385,7 @@ export default function BookCylinderPage() {
                       required
                     >
                       {Array.from(
-                        { length: Math.min(remainingQuota || 1, 3) },
+                        { length: Math.min(remainingQuota || 1, availableStock || 1, 3) },
                         (_, i) => i + 1,
                       ).map((num) => (
                         <option key={num} value={num}>
@@ -342,7 +399,7 @@ export default function BookCylinderPage() {
                       </p>
                     )}
                     <p className="mt-1 text-xs text-gray-500">
-                      Maximum: {remainingQuota} cylinder(s) available
+                      Maximum: {Math.min(remainingQuota || 0, availableStock || 0)} cylinder(s) available
                     </p>
                   </div>
 
