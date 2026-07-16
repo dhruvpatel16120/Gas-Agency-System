@@ -128,7 +128,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
         <AdminNavbar />
         <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
           <div className="px-4 sm:px-0">
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
         <AdminNavbar />
         <main className="max-w-7xl mx-auto py-8 sm:px-6 lg:px-8">
           <div className="px-4 sm:px-0">
@@ -186,7 +186,7 @@ export default function AdminDashboard() {
   const activeDeliveries = dashboardData?.activeDeliveries || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
       <AdminNavbar />
 
       {/* Main Content */}

@@ -66,7 +66,7 @@ export default function NewBatchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50/30 text-black">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50 text-black">
       <AdminNavbar />
       <main className="max-w-4xl mx-auto py-8 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
